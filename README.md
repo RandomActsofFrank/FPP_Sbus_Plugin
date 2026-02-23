@@ -42,25 +42,29 @@ For Pi 4/5 with additional UARTs, add `dtoverlay=uart2` (or uart3, uart4, uart5)
 
 ## Installation
 
-### Manual install (recommended if “Failed to fetch” from Plugin Manager)
+### Why "Failed to fetch" / "could not read Username" happens
+
+FPP's Plugin Manager uses a **central plugin list** ([fpp-pluginList](https://github.com/FalconChristmas/fpp-pluginList)). It looks up each plugin there, fetches its `pluginInfo.json`, and uses the **srcURL** from that file to clone. If **FPP_Sbus_Plugin** is not in that list (or is listed with the wrong URL), FPP may try to clone from the wrong repo and you get a fetch error—so the problem is **plugin list configuration**, not necessarily your network. See [PLUGIN_LIST_ENTRY.md](PLUGIN_LIST_ENTRY.md) for the exact entry to add to the list and how to install manually.
+
+### Manual install (use this if “Failed to fetch” from Plugin Manager)
 
 The Plugin Manager installs by cloning from GitHub. If that fails (e.g. repo not created yet or no network access), install manually:
 
 1. **Copy the plugin to your FPP device**
-   - Copy the entire `fpp-plugin-SBUS` folder to the FPP plugins directory on your Pi.
+   - Copy the entire `FPP_Sbus_Plugin` folder to the FPP plugins directory on your Pi.
    - Default path: `/home/fpp/media/plugins/`
    - Example from your computer (replace with your Pi’s IP/hostname):
      ```bash
-     scp -r fpp-plugin-SBUS fpp@YOUR_FPP_IP:/home/fpp/media/plugins/
+     scp -r FPP_Sbus_Plugin fpp@YOUR_FPP_IP:/home/fpp/media/plugins/
      ```
-   - Or use Samba/USB/other file copy so the folder ends up at `.../plugins/fpp-plugin-SBUS/`.
+   - Or use Samba/USB/other file copy so the folder ends up at `.../plugins/FPP_Sbus_Plugin/`.
 
 2. **Run the install script on the FPP device**
    - SSH into the Pi: `ssh fpp@YOUR_FPP_IP`
    - Then:
      ```bash
-     cd /home/fpp/media/plugins/fpp-plugin-SBUS/scripts
-     sudo ${FPPDIR}/scripts/install_plugin.sh fpp-plugin-SBUS
+     cd /home/fpp/media/plugins/FPP_Sbus_Plugin/scripts
+     sudo ${FPPDIR}/scripts/install_plugin.sh FPP_Sbus_Plugin
      ```
    - Or: in the FPP web UI go to **Plugin Manager**, find **FrSky SBUS** in the list, and use **Install from Directory** if your FPP version supports it.
 
@@ -68,7 +72,7 @@ The Plugin Manager installs by cloning from GitHub. If that fails (e.g. repo not
 
 ### Install from Plugin Manager (after repo is on GitHub)
 
-1. Ensure the repo exists at https://github.com/RandomActsofFrank/fpp-plugin-SBUS and is **public**.
+1. Ensure the repo exists at https://github.com/RandomActsofFrank/FPP_Sbus_Plugin and is **public**.
 2. Add the repo to FPP’s plugin list (or use “Install from Git URL” if available).
 3. Install **FrSky SBUS**, then configure as above.
 

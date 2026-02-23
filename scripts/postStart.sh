@@ -1,7 +1,7 @@
 #!/bin/sh
 # Start SBUS daemon when FPP starts
 
-PLUGINDIR="${FPPDIR}/plugins/fpp-plugin-SBUS"
+PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
 DAEMON="${PLUGINDIR}/scripts/sbus_fpp_daemon.py"
 PIDFILE="${PLUGINDIR}/sbus_daemon.pid"
 CONFIG="${PLUGINDIR}/sbus_config.json"

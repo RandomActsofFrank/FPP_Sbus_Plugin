@@ -4,7 +4,7 @@
  * Map SBUS channel values to FPP effects/playlists
  */
 
-$plugin = 'fpp-plugin-SBUS';
+$plugin = 'FPP_Sbus_Plugin';
 $pluginDir = dirname(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
 $defaultConfig = array(

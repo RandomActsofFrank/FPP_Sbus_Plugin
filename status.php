@@ -40,5 +40,5 @@ if (file_exists($pidFile)) {
 <pre style="max-height:200px;overflow:auto;background:#f5f5f5;padding:10px;"><?php echo htmlspecialchars(file_get_contents($logFile, false, null, -2048)); ?></pre>
 <?php endif; ?>
 
-<p><a href="plugin.php?plugin=fpp-plugin-SBUS&page=content.php" class="btn btn-primary">Configure</a></p>
+<p><a href="plugin.php?plugin=FPP_Sbus_Plugin&page=content.php" class="btn btn-primary">Configure</a></p>
 </div>

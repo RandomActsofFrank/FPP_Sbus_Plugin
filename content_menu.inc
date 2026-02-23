@@ -1,1 +1,1 @@
-<li><a href="plugin.php?plugin=fpp-plugin-SBUS&page=content.php">SBUS Configuration</a></li>
+<li><a href="plugin.php?plugin=FPP_Sbus_Plugin&page=content.php">SBUS Configuration</a></li>

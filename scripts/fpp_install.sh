@@ -1,5 +1,5 @@
 #!/bin/bash
-# fpp-plugin-SBUS install script
+# FPP_Sbus_Plugin install script
 
 . ${FPPDIR}/scripts/common
 
@@ -9,7 +9,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Create default config if missing
-PLUGINDIR="${FPPDIR}/plugins/fpp-plugin-SBUS"
+PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
 CONFIG="${PLUGINDIR}/sbus_config.json"
 if [ ! -f "$CONFIG" ]; then
     echo '{"enabled":0,"serialPort":"/dev/ttyAMA0","baudRate":100000,"fppHost":"127.0.0.1","rules":[]}' > "$CONFIG"
@@ -18,4 +18,4 @@ fi
 # Make daemon executable
 chmod +x "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" 2>/dev/null || true
 
-echo "FrSky SBUS plugin installed. Configure via Plugin menu -> SBUS - Configuration"
+echo "FrSky SBUS plugin installed. Configure via Plugin menu -> SBUS - Configuration (plugin dir: FPP_Sbus_Plugin)"

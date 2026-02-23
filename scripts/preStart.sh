@@ -1,2 +1,2 @@
 #!/bin/sh
-echo "Running fpp-plugin-SBUS PreStart Script"
+echo "Running FPP_Sbus_Plugin PreStart Script"
