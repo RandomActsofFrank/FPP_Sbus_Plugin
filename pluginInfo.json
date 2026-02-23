@@ -1,0 +1,23 @@
+{
+  "repoName": "fpp-plugin-SBUS",
+  "name": "FrSky SBUS Plugin for FPP",
+  "author": "FPP Community",
+  "description": "Allows FPP to receive FrSky SBUS signals from RC transmitters and trigger effects/playlists based on servo channel values. Uses Raspberry Pi serial port. Requires SBUS inverter for FrSky receivers.",
+  "homeURL": "https://github.com/FalconChristmas/fpp-plugin-SBUS",
+  "srcURL": "https://github.com/FalconChristmas/fpp-plugin-SBUS.git",
+  "bugURL": "https://github.com/FalconChristmas/fpp-plugin-SBUS/issues",
+  "allowUpdates": 1,
+  "versions": [
+    {
+      "minFPPVersion": "7.0",
+      "maxFPPVersion": "0",
+      "branch": "master",
+      "sha": "",
+      "dependencies": {
+        "plugins": [],
+        "packages": ["python3", "python3-serial"],
+        "scripts": []
+      }
+    }
+  ]
+}
