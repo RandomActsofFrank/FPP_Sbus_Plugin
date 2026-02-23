@@ -73,7 +73,7 @@ See your FPP instance's `/apihelp.php` for the full command list.
 
 ## References
 
-- [FPP Plugin Template](https://github.com/FalconChristmas/fpp-plugin-Template)
+- [FPP Plugin Template](https://github.com/RandomActsofFrank/fpp-plugin-Template)
 - [Carbon225/raspberry-sbus](https://github.com/Carbon225/raspberry-sbus) – C++ SBUS library for Raspberry Pi
 - [1arthur1/PiSBUS](https://github.com/1arthur1/PiSBUS) – Arduino-style SBUS library for Raspberry Pi
 - [bolderflight/SBUS](https://github.com/bolderflight/SBUS) – Original SBUS protocol reference

@@ -24,7 +24,7 @@
 
 <h3>References</h3>
 <ul>
-<li><a href="https://github.com/FalconChristmas/fpp-plugin-Template" target="_blank">FPP Plugin Template</a></li>
+<li><a href="https://github.com/RandomActsofFrank/fpp-plugin-Template" target="_blank">FPP Plugin Template</a></li>
 <li><a href="https://github.com/Carbon225/raspberry-sbus" target="_blank">Carbon225/raspberry-sbus</a> – C++ SBUS library for Raspberry Pi</li>
 <li><a href="https://github.com/1arthur1/PiSBUS" target="_blank">1arthur1/PiSBUS</a> – Arduino-style SBUS library for Raspberry Pi</li>
 <li><a href="https://github.com/bolderflight/SBUS" target="_blank">bolderflight/SBUS</a> – Original SBUS protocol reference</a></li>
