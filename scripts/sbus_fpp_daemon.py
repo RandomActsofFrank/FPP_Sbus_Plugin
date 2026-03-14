@@ -122,6 +122,9 @@ def main():
     rules = config.get('rules', [])
 
     status_file = os.path.join(plugin_dir, 'sbus_status.json')
+    heartbeat_file = os.path.join(plugin_dir, 'sbus_heartbeat.json')
+    HEARTBEAT_INTERVAL = 15  # seconds
+    last_heartbeat_time = 0.0
     CONNECTED_TIMEOUT = 0.5  # seconds without packet = disconnected
 
     # Track last triggered rule to avoid spamming
@@ -151,8 +154,19 @@ def main():
     buf = bytearray()
     print(f"SBUS daemon started on {port}, FPP host {fpp_host}", file=sys.stderr)
 
+    def write_heartbeat():
+        try:
+            with open(heartbeat_file, 'w') as f:
+                json.dump({'last_heartbeat': time.time(), 'pid': os.getpid()}, f)
+        except Exception as e:
+            print(f"Heartbeat write error: {e}", file=sys.stderr)
+
     while True:
         try:
+            now = time.time()
+            if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
+                last_heartbeat_time = now
+                write_heartbeat()
             chunk = ser.read(256)
             if chunk:
                 buf.extend(chunk)

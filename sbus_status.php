@@ -23,9 +23,22 @@ if (file_exists($pidFile)) {
 }
 fpp_sbus_log('status', ['running' => $running, 'enabled' => !empty($config['enabled'])]);
 
+$heartbeatFile = (defined('FPP_SBUS_PLUGIN_ROOT') ? FPP_SBUS_PLUGIN_ROOT : __DIR__) . '/sbus_heartbeat.json';
+if (!file_exists($heartbeatFile)) {
+    $heartbeatFile = $pluginDir . '/sbus_heartbeat.json';
+}
+$lastHeartbeat = null;
+if (file_exists($heartbeatFile)) {
+    $hb = @json_decode(file_get_contents($heartbeatFile), true);
+    if (!empty($hb['last_heartbeat'])) {
+        $lastHeartbeat = (float) $hb['last_heartbeat'];
+    }
+}
+
 $out = [
     'enabled' => !empty($config['enabled']),
     'running' => $running,
+    'lastHeartbeat' => $lastHeartbeat,
     'serialPort' => $config['serialPort'] ?? null,
     'fppHost' => $config['fppHost'] ?? null,
     'rulesCount' => count($config['rules'] ?? [])

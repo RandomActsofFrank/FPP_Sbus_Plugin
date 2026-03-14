@@ -54,6 +54,7 @@ function extractNames($data) {
 }
 
 $ctx = stream_context_create(array('http' => array('timeout' => 5)));
+$listSource = '';
 foreach ($hostsToTry as $host) {
     $urls = array(
         'http://' . $host . '/api/files/' . $type,
@@ -65,17 +66,21 @@ foreach ($hostsToTry as $host) {
     }
     foreach ($urls as $url) {
         $raw = @file_get_contents($url, false, $ctx);
+        fpp_sbus_log('fpp_lists try url', ['url' => $url, 'ok' => ($raw !== false), 'len' => ($raw !== false ? strlen($raw) : 0)]);
         if ($raw !== false) {
             $data = json_decode($raw, true);
             $items = extractNames($data);
-            if (!empty($items)) break 2;
+            if (!empty($items)) {
+                $listSource = 'api:' . $url;
+                break 2;
+            }
             if (is_array($data) && isset($data['error'])) continue;
         }
     }
 }
 
 if (empty($items)) {
-    $mediaBases = array('/home/fpp/media', '/var/www/media', __DIR__ . '/../media');
+    $mediaBases = array('/home/fpp/media', '/var/www/media', '/opt/fpp/media', __DIR__ . '/../media', __DIR__ . '/../../media', $pluginDir . '/media');
     $subDirs = array('playlists' => array('playlists', 'playlist'), 'sequences' => array('sequences', 'sequence'), 'effects' => array('effects', 'effect'), 'media' => array('music', 'media'));
     $extMap = array('playlists' => array('.json'), 'sequences' => array('.fseq', '.eseq'), 'effects' => array('.eseq'), 'media' => array('.mp3', '.ogg', '.wav'));
     $subList = isset($subDirs[$type]) ? $subDirs[$type] : array($type);
@@ -95,12 +100,15 @@ if (empty($items)) {
                     $items[] = basename($f, $ext);
                 }
             }
-            if (!empty($items)) break 2;
+            if (!empty($items)) {
+                $listSource = 'fs:' . $dir;
+                break 2;
+            }
         }
     }
     $items = array_unique($items);
     sort($items);
 }
 
-fpp_sbus_log('fpp_lists.php result', ['type' => $type, 'count' => count($items)]);
+fpp_sbus_log('fpp_lists.php result', ['type' => $type, 'count' => count($items), 'source' => isset($listSource) ? $listSource : 'none']);
 echo json_encode(array('items' => array_values($items)));

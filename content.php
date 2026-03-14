@@ -52,7 +52,7 @@ if (isset($_POST['save'])) {
     }
 
     file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
-    echo "<div class='alert alert-success'>Configuration saved. Restart FPP or the SBUS daemon for changes to take effect.</div>";
+    echo "<div class='alert alert-success' style='font-size:16px;padding:14px 20px;margin-bottom:20px;font-weight:500;'>Configuration saved. Restart the FPP daemon (fppd) or the SBUS daemon for changes to take effect. (This is not a system reboot—only the FPP service restarts.)</div>";
 }
 
 // Build rules JSON for editing
@@ -73,7 +73,7 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 <div class="panel-body small">
 <p>A <strong>Python daemon</strong> does all SBUS reading; this config page only displays the result.</p>
 <ol>
-<li><strong>Daemon:</strong> <code>scripts/sbus_fpp_daemon.py</code> runs in the background (started when FPP starts, if the plugin is enabled). It opens the serial port (e.g. /dev/ttyAMA0) at 100000 baud, 8E2.</li>
+<li><strong>Daemon:</strong> <code>scripts/sbus_fpp_daemon.py</code> runs in the background (started when the FPP daemon, fppd, starts—if the plugin is enabled). It opens the serial port (e.g. /dev/ttyAMA0) at 100000 baud, 8E2.</li>
 <li><strong>Serial → SBUS:</strong> The daemon reads raw bytes, finds 25-byte SBUS packets (header 0x0F, footer 0x00), and decodes the 16 channels (11 bits each) plus ch17/ch18, failsafe, and frame_lost. The protocol is implemented in <code>parse_sbus_packet()</code> in that script.</li>
 <li><strong>Status file:</strong> After each valid packet, the daemon writes <code>sbus_status.json</code> in the plugin directory with last_packet time, channels[1–16], and flags.</li>
 <li><strong>This page:</strong> Click <strong>Refresh status</strong> to fetch receiver and channel data from <code>sbus_status.php</code> (reads <code>sbus_status.json</code>).</li>
@@ -99,7 +99,7 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
             <button type="button" class="btn btn-danger btn-sm" id="btnUninstall">Clean Up / Uninstall</button>
             <span id="daemonActionResult" class="text-muted small" style="margin-left:10px;"></span>
         </div>
-        <p class="text-muted small" style="margin-top:8px;">If the buttons fail: <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=restart" target="_blank">Restart</a> | <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=stop" target="_blank">Stop</a> (open in new tab to run).</p>
+        <p class="text-muted small" style="margin-top:8px;">If the buttons fail: <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=restart" target="_blank">Restart SBUS daemon</a> | <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=stop" target="_blank">Stop</a> (open in new tab). To restart fppd itself, use FPP’s main menu or Settings.</p>
     </div>
 </div>
 
@@ -216,7 +216,7 @@ function appendRuleRow(i) {
         '<td><input type="number" min="172" max="1811" class="rule-max" data-i="' + i + '" value="' + (r.maxVal ?? 1811) + '"></td>' +
         '<td><select class="rule-cmd-type" data-i="' + i + '">' + typeOpts + '</select></td>' +
         '<td><select class="rule-item" data-i="' + i + '" style="min-width:140px;"></select><input type="text" class="rule-cmd-custom" data-i="' + i + '" placeholder="e.g. Stop" style="display:none;min-width:140px;" value="' + esc(parsed.isCustom ? parsed.item : '') + '"></td>' +
-        '<td><button type="button" class="btn btn-sm btn-default rule-test-btn" data-i="' + i + '">Test</button><span class="rule-test-result small" data-i="' + i + '"></span></td>' +
+        '<td><button type="button" class="btn btn-success btn-sm rule-test-btn" data-i="' + i + '">Test</button><span class="rule-test-result small" data-i="' + i + '"></span></td>' +
         '<td><button type="button" class="btn btn-danger btn-sm" onclick="removeRule(' + i + ')">Remove</button></td>';
     tbody.appendChild(tr);
     var typeSel = tr.querySelector('.rule-cmd-type');
@@ -371,9 +371,16 @@ function updateReceiverStatus() {
                 var m = text.match(/\{[\s\S]*\}/);
                 if (m) data = JSON.parse(m[0]);
             } catch (e) {}
+            var heartbeatLine = '';
+            if (data.lastHeartbeat && typeof data.lastHeartbeat === 'number') {
+                var sec = Math.round(Date.now() / 1000 - data.lastHeartbeat);
+                heartbeatLine = ' <span class="text-muted small">(Daemon heartbeat: ' + (sec < 60 ? sec + ' s ago' : Math.floor(sec / 60) + ' min ago') + ')</span>';
+            } else if (data.running) {
+                heartbeatLine = ' <span class="text-muted small">(No heartbeat file yet—daemon may have just started)</span>';
+            }
             if (data.receiver && data.receiver.connected) {
                 receiverDetected = true;
-                statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data below.';
+                statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data below.' + heartbeatLine;
                 if (tableEl) tableEl.style.display = 'table';
                 for (var i = 1; i <= 16; i++) {
                     var el = document.getElementById('ch' + i);
@@ -387,11 +394,11 @@ function updateReceiverStatus() {
                 if (flagsEl) flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
             } else {
                 if (data.receiver) {
-                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
+                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.' + heartbeatLine;
                 } else if (!data.running) {
-                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS above, save, then restart FPP or click <strong>Restart Daemon</strong> below.';
+                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS above, save, then restart the FPP daemon (fppd) or click <strong>Restart Daemon</strong> below.';
                 } else {
-                    statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
+                    statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.' + heartbeatLine;
                 }
                 if (tableEl) tableEl.style.display = 'none';
                 if (flagsEl) flagsEl.textContent = '';
