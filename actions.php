@@ -3,7 +3,9 @@
  * FrSky SBUS Plugin - Daemon control actions
  * Handles Stop, Restart, Uninstall (cleanup) from config page.
  */
-header('Content-Type: application/json');
+if (ob_get_level()) ob_end_clean();
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
 $pluginDir = dirname(__DIR__);
 $action = $_REQUEST['action'] ?? '';

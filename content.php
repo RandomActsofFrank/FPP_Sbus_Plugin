@@ -83,6 +83,7 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
             <button type="button" class="btn btn-danger btn-sm" id="btnUninstall">Clean Up / Uninstall</button>
             <span id="daemonActionResult" class="text-muted small" style="margin-left:10px;"></span>
         </div>
+        <p class="text-muted small" style="margin-top:8px;">If the buttons fail: <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=restart" target="_blank">Restart</a> | <a href="plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=stop" target="_blank">Stop</a> (open in new tab to run).</p>
     </div>
 </div>
 
@@ -218,14 +219,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.disabled = true;
         resultEl.textContent = 'Running…';
         var url = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=' + encodeURIComponent(action);
-        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+        fetch(url).then(function(r) { return r.text(); }).then(function(text) {
+            var data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                var m = text.match(/\{[\s\S]*?\}(?=\s*$|\s*<)/);
+                data = m ? JSON.parse(m[0]) : { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
+            }
             resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
             if (data.ok) setTimeout(updateReceiverStatus, 500);
-        }).catch(function() {
-            resultEl.textContent = 'Request failed';
+        }).catch(function(err) {
+            resultEl.textContent = 'Request failed. Try the link below or run the script via SSH.';
         }).finally(function() {
             if (btn) btn.disabled = false;
-            setTimeout(function() { resultEl.textContent = ''; }, 5000);
+            setTimeout(function() { resultEl.textContent = ''; }, 8000);
         });
     }
     document.getElementById('btnRestartDaemon').addEventListener('click', function() { doDaemonAction('restart', 'btnRestartDaemon'); });
