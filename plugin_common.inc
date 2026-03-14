@@ -15,7 +15,7 @@ if (!function_exists('fpp_sbus_log')) {
     function fpp_sbus_log($message, $context = []) {
         static $logFile = null;
         if ($logFile === null) {
-            $fppLogDirs = array('/home/fpp/logs', '/var/log/fpp', '/opt/fpp/logs');
+            $fppLogDirs = array('/home/fpp/media/logs', '/home/fpp/logs', '/var/log/fpp', '/opt/fpp/logs');
             $logFile = '';
             foreach ($fppLogDirs as $dir) {
                 if (is_dir($dir) && is_writable($dir)) {

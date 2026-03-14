@@ -68,13 +68,10 @@ function extractNames($data, $type = '') {
 $ctx = stream_context_create(array('http' => array('timeout' => 5)));
 $listSource = '';
 foreach ($hostsToTry as $host) {
-    $urls = array(
-        'http://' . $host . '/api/files/' . $type,
-        'http://' . $host . '/api/file/' . $type
-    );
+    $base = 'http://' . $host . '/api/';
+    $urls = array($base . $type);
     if ($type === 'playlists') {
-        $urls[] = 'http://' . $host . '/api/files/playlist';
-        $urls[] = 'http://' . $host . '/api/file/playlist';
+        $urls[] = $base . 'playlist';
     }
     foreach ($urls as $url) {
         $raw = @file_get_contents($url, false, $ctx);
