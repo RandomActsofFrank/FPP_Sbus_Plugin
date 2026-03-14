@@ -85,7 +85,8 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 <h3>Receiver Status</h3>
 <div id="receiverStatus" class="panel panel-default">
     <div class="panel-body">
-        <p id="receiverStatusText">Checking…</p>
+        <p id="receiverStatusText">Click <strong>Refresh status</strong> to check receiver and channel data.</p>
+        <button type="button" class="btn btn-sm btn-default" id="btnRefreshStatus" style="margin-bottom:8px;">Refresh status</button>
         <table class="table table-condensed table-bordered" id="channelTable" style="max-width:600px;margin-top:10px;display:none;">
             <thead><tr><th>Ch</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th></tr></thead>
             <tbody><tr><td>Value</td><td id="ch1">-</td><td id="ch2">-</td><td id="ch3">-</td><td id="ch4">-</td><td id="ch5">-</td><td id="ch6">-</td><td id="ch7">-</td><td id="ch8">-</td><td id="ch9">-</td><td id="ch10">-</td><td id="ch11">-</td><td id="ch12">-</td><td id="ch13">-</td><td id="ch14">-</td><td id="ch15">-</td><td id="ch16">-</td></tr></tbody>
@@ -180,13 +181,19 @@ function renderRules() {
     }
 }
 
+var refreshCooldownUntil = 0;
+
 function updateReceiverStatus() {
     var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=sbus_status.php';
     var statusEl = document.getElementById('receiverStatusText');
     var tableEl = document.getElementById('channelTable');
     var flagsEl = document.getElementById('receiverFlags');
+    var btn = document.getElementById('btnRefreshStatus');
+    if (btn) btn.disabled = true;
+    statusEl.textContent = 'Checking…';
     var controller = new AbortController();
     var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+    var receiverDetected = false;
     fetch(apiUrl, { signal: controller.signal })
         .then(function(r) { return r.text(); })
         .then(function(text) {
@@ -198,28 +205,24 @@ function updateReceiverStatus() {
                 var m = text.match(/\{[\s\S]*\}/);
                 data = m ? JSON.parse(m[0]) : {};
             }
-            if (data.receiver) {
-                var r = data.receiver;
-                if (r.connected) {
-                    statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data updating.';
-                    tableEl.style.display = 'table';
-                    for (var i = 1; i <= 16; i++) {
-                        var el = document.getElementById('ch' + i);
-                        if (el) el.textContent = r.channels[i - 1] !== undefined ? r.channels[i - 1] : '-';
-                    }
-                    var flags = [];
-                    if (r.failsafe) flags.push('Failsafe');
-                    if (r.frameLost) flags.push('Frame lost');
-                    if (r.ch17) flags.push('Ch17');
-                    if (r.ch18) flags.push('Ch18');
-                    flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
-                } else {
-                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
-                    tableEl.style.display = 'none';
-                    flagsEl.textContent = '';
+            if (data.receiver && data.receiver.connected) {
+                receiverDetected = true;
+                statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data below.';
+                tableEl.style.display = 'table';
+                for (var i = 1; i <= 16; i++) {
+                    var el = document.getElementById('ch' + i);
+                    if (el) el.textContent = data.receiver.channels[i - 1] !== undefined ? data.receiver.channels[i - 1] : '-';
                 }
+                var flags = [];
+                if (data.receiver.failsafe) flags.push('Failsafe');
+                if (data.receiver.frameLost) flags.push('Frame lost');
+                if (data.receiver.ch17) flags.push('Ch17');
+                if (data.receiver.ch18) flags.push('Ch18');
+                flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
             } else {
-                if (!data.running) {
+                if (data.receiver) {
+                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
+                } else if (!data.running) {
                     statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS and restart FPP.';
                 } else {
                     statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
@@ -231,6 +234,25 @@ function updateReceiverStatus() {
         .catch(function() {
             clearTimeout(timeoutId);
             statusEl.innerHTML = '<span class="label label-default">Could not fetch status</span>';
+        })
+        .finally(function() {
+            if (receiverDetected) {
+                if (btn) btn.disabled = false;
+            } else {
+                if (btn) btn.disabled = true;
+                refreshCooldownUntil = Date.now() + 30000;
+                var tick = function() {
+                    var left = Math.ceil((refreshCooldownUntil - Date.now()) / 1000);
+                    if (left <= 0) {
+                        if (statusEl) statusEl.innerHTML = 'No receiver detected. Click <strong>Refresh status</strong> to check again.';
+                        if (btn) btn.disabled = false;
+                        return;
+                    }
+                    if (statusEl) statusEl.textContent = 'No receiver detected. Check again in ' + left + ' s.';
+                    setTimeout(tick, 1000);
+                };
+                tick();
+            }
         });
 }
 
@@ -238,9 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (rules.length === 0) addRule();
     else renderRules();
 
-    updateReceiverStatus();
-    var statusInterval = 4000;
-    setInterval(updateReceiverStatus, statusInterval);
+    document.getElementById('btnRefreshStatus').addEventListener('click', updateReceiverStatus);
 
     function doDaemonAction(action, btnId) {
         var btn = document.getElementById(btnId);
@@ -257,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data = m ? JSON.parse(m[0]) : { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
             }
             resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
-            if (data.ok) setTimeout(updateReceiverStatus, 500);
+            if (data.ok && document.getElementById('btnRefreshStatus')) updateReceiverStatus();
         }).catch(function(err) {
             resultEl.textContent = 'Request failed. Try the link below or run the script via SSH.';
         }).finally(function() {
