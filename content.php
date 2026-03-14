@@ -189,36 +189,36 @@ function updateReceiverStatus() {
     var tableEl = document.getElementById('channelTable');
     var flagsEl = document.getElementById('receiverFlags');
     var btn = document.getElementById('btnRefreshStatus');
+    if (!statusEl) return;
     if (btn) btn.disabled = true;
     statusEl.textContent = 'Checking…';
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+    var timedOut = false;
+    var timeoutId = setTimeout(function() { timedOut = true; }, 5000);
     var receiverDetected = false;
-    fetch(apiUrl, { signal: controller.signal })
+    fetch(apiUrl)
         .then(function(r) { return r.text(); })
         .then(function(text) {
+            if (timedOut) return;
             clearTimeout(timeoutId);
-            var data;
+            var data = {};
             try {
-                data = JSON.parse(text);
-            } catch (e) {
                 var m = text.match(/\{[\s\S]*\}/);
-                data = m ? JSON.parse(m[0]) : {};
-            }
+                if (m) data = JSON.parse(m[0]);
+            } catch (e) {}
             if (data.receiver && data.receiver.connected) {
                 receiverDetected = true;
                 statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data below.';
-                tableEl.style.display = 'table';
+                if (tableEl) tableEl.style.display = 'table';
                 for (var i = 1; i <= 16; i++) {
                     var el = document.getElementById('ch' + i);
-                    if (el) el.textContent = data.receiver.channels[i - 1] !== undefined ? data.receiver.channels[i - 1] : '-';
+                    if (el && data.receiver.channels) el.textContent = data.receiver.channels[i - 1] !== undefined ? data.receiver.channels[i - 1] : '-';
                 }
                 var flags = [];
                 if (data.receiver.failsafe) flags.push('Failsafe');
                 if (data.receiver.frameLost) flags.push('Frame lost');
                 if (data.receiver.ch17) flags.push('Ch17');
                 if (data.receiver.ch18) flags.push('Ch18');
-                flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
+                if (flagsEl) flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
             } else {
                 if (data.receiver) {
                     statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
@@ -227,15 +227,18 @@ function updateReceiverStatus() {
                 } else {
                     statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
                 }
-                tableEl.style.display = 'none';
-                flagsEl.textContent = '';
+                if (tableEl) tableEl.style.display = 'none';
+                if (flagsEl) flagsEl.textContent = '';
             }
         })
         .catch(function() {
             clearTimeout(timeoutId);
-            statusEl.innerHTML = '<span class="label label-default">Could not fetch status</span>';
+            if (!timedOut && statusEl) statusEl.innerHTML = '<span class="label label-default">Could not fetch status</span>';
         })
         .finally(function() {
+            if (timedOut && statusEl) {
+                statusEl.innerHTML = '<span class="label label-default">Request timed out</span>';
+            }
             if (receiverDetected) {
                 if (btn) btn.disabled = false;
             } else {
@@ -260,13 +263,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (rules.length === 0) addRule();
     else renderRules();
 
-    document.getElementById('btnRefreshStatus').addEventListener('click', updateReceiverStatus);
+    var btnRefresh = document.getElementById('btnRefreshStatus');
+    if (btnRefresh) btnRefresh.addEventListener('click', updateReceiverStatus);
 
     function doDaemonAction(action, btnId) {
         var btn = document.getElementById(btnId);
         var resultEl = document.getElementById('daemonActionResult');
         if (btn) btn.disabled = true;
-        resultEl.textContent = 'Running…';
+        if (resultEl) resultEl.textContent = 'Running…';
         var url = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=' + encodeURIComponent(action);
         fetch(url).then(function(r) { return r.text(); }).then(function(text) {
             var data;
@@ -276,13 +280,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 var m = text.match(/\{[\s\S]*?\}(?=\s*$|\s*<)/);
                 data = m ? JSON.parse(m[0]) : { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
             }
-            resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
+            if (resultEl) resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
             if (data.ok && document.getElementById('btnRefreshStatus')) updateReceiverStatus();
         }).catch(function(err) {
-            resultEl.textContent = 'Request failed. Try the link below or run the script via SSH.';
+            if (resultEl) resultEl.textContent = 'Request failed. Try the link below or run the script via SSH.';
         }).finally(function() {
             if (btn) btn.disabled = false;
-            setTimeout(function() { resultEl.textContent = ''; }, 8000);
+            if (resultEl) setTimeout(function() { resultEl.textContent = ''; }, 8000);
         });
     }
     document.getElementById('btnRestartDaemon').addEventListener('click', function() { doDaemonAction('restart', 'btnRestartDaemon'); });
@@ -294,7 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 
-    document.querySelector('form').addEventListener('submit', function() {
+    var form = document.querySelector('form');
+    if (form) form.addEventListener('submit', function() {
         var rows = document.querySelectorAll('#rulesBody tr');
         var out = [];
         rows.forEach(function(row, i) {
@@ -312,7 +317,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         });
-        document.getElementById('rulesInput').value = JSON.stringify(out);
+        var rulesInput = document.getElementById('rulesInput');
+        if (rulesInput) rulesInput.value = JSON.stringify(out);
     });
 
     var sel = document.getElementById('serialPortSelect');
