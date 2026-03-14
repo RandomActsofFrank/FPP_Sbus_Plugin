@@ -40,11 +40,17 @@ if ($idx !== false) {
     if ($type === 'Start Playlist' && $name !== '') {
         $url = $base . 'playlist/' . rawurlencode($name) . '/start';
     } elseif ($type === 'Start Sequence' && $name !== '') {
-        $url = $base . 'sequence/' . rawurlencode($name) . '/start/0';
+        // Sequence start requires the .fseq extension in the path segment.
+        $seqName = $name;
+        if (strtolower(substr($seqName, -5)) !== '.fseq') {
+            $seqName .= '.fseq';
+        }
+        $url = $base . 'sequence/' . rawurlencode($seqName) . '/start';
     } elseif ($type === 'Start Effect' && $name !== '') {
         $url = $base . 'effect/' . rawurlencode($name) . '/start';
     } elseif ($type === 'Start Media' && $name !== '') {
-        $url = $base . 'media/' . rawurlencode($name) . '/start';
+        // Media can be started via the same playlist start endpoint by passing the media filename.
+        $url = $base . 'playlist/' . rawurlencode($name) . '/start';
     }
 }
 if ($url === null) {

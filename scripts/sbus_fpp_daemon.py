@@ -100,16 +100,23 @@ def _fpp_start_url(host, command):
     name = (parts[1] or '').strip()
     if not name:
         return None
-    encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
     base = f"http://{host}/api/"
     if ctype == 'Start Playlist':
+        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
         return f"{base}playlist/{encoded}/start"
     if ctype == 'Start Sequence':
-        return f"{base}sequence/{encoded}/start/0"
+        seq_name = name
+        if not seq_name.lower().endswith('.fseq'):
+            seq_name += '.fseq'
+        encoded = urllib.parse.quote(seq_name, safe='')  # %20 for spaces, not +
+        return f"{base}sequence/{encoded}/start"
     if ctype == 'Start Effect':
+        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
         return f"{base}effect/{encoded}/start"
     if ctype == 'Start Media':
-        return f"{base}media/{encoded}/start"
+        # Media can be started via the same playlist start endpoint by passing the media filename.
+        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
+        return f"{base}playlist/{encoded}/start"
     return None
 
 
