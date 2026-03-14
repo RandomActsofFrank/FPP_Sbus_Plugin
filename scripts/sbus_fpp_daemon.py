@@ -89,6 +89,23 @@ def write_status(status_file, parsed):
         print(f"Status write error: {e}", file=sys.stderr)
 
 
+def write_no_signal_status(status_file):
+    """Write minimal status when daemon is running but no SBUS packets received (so UI shows 'No signal')."""
+    try:
+        data = {
+            'last_packet': 0.0,
+            'channels': [0] * 16,
+            'ch17': False,
+            'ch18': False,
+            'failsafe': False,
+            'frame_lost': True,
+        }
+        with open(status_file, 'w') as f:
+            json.dump(data, f, indent=0)
+    except Exception as e:
+        print(f"Status write error: {e}", file=sys.stderr)
+
+
 def _fpp_start_url(host, command):
     """Build FPP REST URL for Start Playlist/Sequence/Effect/Media; else None (use /api/command/).
     FPP API accepts + for spaces in path (quote_plus)."""
@@ -157,9 +174,20 @@ def main():
 
     status_file = os.path.join(plugin_dir, 'sbus_status.json')
     heartbeat_file = os.path.join(plugin_dir, 'sbus_heartbeat.json')
+    pid_file = os.path.join(plugin_dir, 'sbus_daemon.pid')
     HEARTBEAT_INTERVAL = 15  # seconds
     last_heartbeat_time = 0.0
     CONNECTED_TIMEOUT = 0.5  # seconds without packet = disconnected
+
+    # Same log path order as plugin_common.inc so heartbeat appears in fpp_sbus.log
+    _log_dirs = ['/home/fpp/media/logs', '/home/fpp/logs', '/var/log/fpp', '/opt/fpp/logs', plugin_dir]
+    _log_file = None
+    for _d in _log_dirs:
+        if os.path.isdir(_d) and os.access(_d, os.W_OK):
+            _log_file = os.path.join(_d, 'fpp_sbus.log')
+            break
+    if not _log_file:
+        _log_file = os.path.join(plugin_dir, 'fpp_sbus.log')
 
     # Track last triggered rule to avoid spamming
     last_triggered = {}  # rule_idx -> last trigger time
@@ -178,29 +206,56 @@ def main():
         print(f"Serial open error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    try:
+        with open(pid_file, 'w') as f:
+            f.write(str(os.getpid()))
+    except Exception as e:
+        print(f"PID file write error: {e}", file=sys.stderr)
+
     def shutdown(signum=None, frame=None):
-        ser.close()
+        try:
+            ser.close()
+        except Exception:
+            pass
+        try:
+            if os.path.exists(pid_file):
+                os.remove(pid_file)
+        except Exception:
+            pass
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)
 
     buf = bytearray()
+    last_packet_time = 0.0  # when we last got a valid SBUS packet (0 = none yet)
+    NO_SIGNAL_THRESHOLD = 30  # seconds without packet -> log "no SBUS signal" and write minimal status
     print(f"SBUS daemon started on {port}, FPP host {fpp_host}", file=sys.stderr)
 
-    def write_heartbeat():
+    def write_heartbeat(no_sbus_signal=False):
         try:
             with open(heartbeat_file, 'w') as f:
                 json.dump({'last_heartbeat': time.time(), 'pid': os.getpid()}, f)
         except Exception as e:
             print(f"Heartbeat write error: {e}", file=sys.stderr)
+        try:
+            with open(_log_file, 'a') as f:
+                if no_sbus_signal:
+                    f.write(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + ' sbus daemon heartbeat (no SBUS signal)\n')
+                else:
+                    f.write(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + ' sbus daemon heartbeat\n')
+        except Exception:
+            pass
 
     while True:
         try:
             now = time.time()
             if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
                 last_heartbeat_time = now
-                write_heartbeat()
+                no_signal = (last_packet_time == 0.0) or (now - last_packet_time >= NO_SIGNAL_THRESHOLD)
+                write_heartbeat(no_sbus_signal=no_signal)
+                if no_signal:
+                    write_no_signal_status(status_file)
             chunk = ser.read(256)
             if chunk:
                 buf.extend(chunk)
@@ -217,6 +272,7 @@ def main():
                     buf = buf[SBUS_PACKET_SIZE:]
                     parsed = parse_sbus_packet(packet)
                     if parsed:
+                        last_packet_time = time.time()
                         write_status(status_file, parsed)
                         if not parsed['failsafe'] and rules:
                             now = time.time()

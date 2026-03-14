@@ -18,9 +18,16 @@ if (file_exists($configFile)) {
     $enabled = !empty($config['enabled']);
 }
 
+$heartbeatFile = $pluginDir . '/sbus_heartbeat.json';
 if (file_exists($pidFile)) {
     $pid = trim((string)@file_get_contents($pidFile));
-    $running = $pid && file_exists("/proc/$pid");
+    $running = $pid !== '' && file_exists("/proc/$pid");
+}
+if (!$running && file_exists($heartbeatFile) && (@filemtime($heartbeatFile) > 0)) {
+    $mtime = @filemtime($heartbeatFile);
+    if ($mtime && (microtime(true) - $mtime) < 45) {
+        $running = true;
+    }
 }
 
 if (file_exists($statusFile)) {

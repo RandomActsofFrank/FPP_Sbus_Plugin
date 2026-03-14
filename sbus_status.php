@@ -19,9 +19,8 @@ $pidFile = $pluginDir . '/sbus_daemon.pid';
 $running = false;
 if (file_exists($pidFile)) {
     $pid = trim((string)@file_get_contents($pidFile));
-    $running = $pid && @file_exists("/proc/$pid");
+    $running = $pid !== '' && @file_exists("/proc/$pid");
 }
-fpp_sbus_log('status', ['running' => $running, 'enabled' => !empty($config['enabled'])]);
 
 $heartbeatFile = (defined('FPP_SBUS_PLUGIN_ROOT') ? FPP_SBUS_PLUGIN_ROOT : __DIR__) . '/sbus_heartbeat.json';
 if (!file_exists($heartbeatFile)) {
@@ -32,8 +31,20 @@ if (file_exists($heartbeatFile)) {
     $hb = @json_decode(file_get_contents($heartbeatFile), true);
     if (!empty($hb['last_heartbeat'])) {
         $lastHeartbeat = (float) $hb['last_heartbeat'];
+        $heartbeatAge = microtime(true) - $lastHeartbeat;
+        if (!$running && $heartbeatAge < 45) {
+            $running = true;
+        }
+        fpp_sbus_log('status heartbeat seen', ['age_sec' => round($heartbeatAge, 1)]);
     }
 }
+if (!$running && file_exists($heartbeatFile) && (@filemtime($heartbeatFile) > 0)) {
+    $mtime = @filemtime($heartbeatFile);
+    if ($mtime && (microtime(true) - $mtime) < 45) {
+        $running = true;
+    }
+}
+fpp_sbus_log('status', ['running' => $running, 'enabled' => !empty($config['enabled'])]);
 
 $out = [
     'enabled' => !empty($config['enabled']),
