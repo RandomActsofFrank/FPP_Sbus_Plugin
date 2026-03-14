@@ -19,9 +19,16 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
-import serial
 import os
 import signal
+
+try:
+    import serial
+except ImportError:
+    print("Missing 'serial' module (pyserial). Install with:", file=sys.stderr)
+    print("  sudo apt-get install python3-serial", file=sys.stderr)
+    print("or: pip3 install pyserial", file=sys.stderr)
+    sys.exit(1)
 
 SBUS_HEADER = 0x0F
 SBUS_FOOTER = 0x00
@@ -156,9 +163,22 @@ def main():
     plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(plugin_dir, 'sbus_config.json')
 
+    # Create default config if missing (same defaults as content.php) so daemon/config page work before first save
     if not os.path.exists(config_path):
-        print("Config not found:", config_path, file=sys.stderr)
-        sys.exit(1)
+        default_config = {
+            'enabled': 0,
+            'serialPort': '/dev/ttyAMA0',
+            'baudRate': 100000,
+            'fppHost': '127.0.0.1',
+            'rules': []
+        }
+        try:
+            with open(config_path, 'w') as f:
+                json.dump(default_config, f, indent=2)
+            print("Created default config at", config_path, file=sys.stderr)
+        except Exception as e:
+            print("Config not found and could not create default:", config_path, e, file=sys.stderr)
+            sys.exit(1)
 
     with open(config_path, 'r') as f:
         config = json.load(f)

@@ -27,7 +27,7 @@ So the **only** code that reads SBUS from the receiver is **`scripts/sbus_fpp_da
 - **Raspberry Pi** with serial port (built-in ttyAMA0 or USB-serial adapter)
 - **SBUS inverter circuit** – FrSky SBUS uses inverted serial logic; you need an inverter between the receiver and Pi
 - **PHP 8.2.x** (e.g. 8.2.7) for the plugin config UI and API endpoints
-- Python 3 and pyserial (`python3-serial` package)
+- **Python 3 and pyserial** – On FPP/Raspberry Pi: `sudo apt-get install python3-serial` (or `pip3 install pyserial`). The daemon will exit with install instructions if the module is missing.
 
 ## Wiring & Hardware
 

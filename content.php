@@ -177,6 +177,11 @@ if (!fppLists.sequences) fppLists.sequences = [];
 if (!fppLists.effects) fppLists.effects = [];
 if (!fppLists.media) fppLists.media = [];
 var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
+function pluginApiUrl(page, extra) {
+    var base = window.location.href.split('?')[0];
+    if (base.indexOf('plugin.php') < 0) base = base.replace(/\/[^/]*$/, '') + (base.slice(-1) === '/' ? '' : '/') + 'plugin.php';
+    return base + '?plugin=<?php echo rawurlencode($plugin); ?>&page=' + encodeURIComponent(page) + (extra || '');
+}
 
 /** Parse JSON from plugin response. Prefer object containing "items" (our list response) when FPP wraps page in HTML. */
 function parseListResponse(text) {
@@ -191,11 +196,18 @@ function parseListResponse(text) {
     }
     return {};
 }
-/** Parse the last JSON object (for status, test, etc.). */
+/** Parse the last complete JSON object (for status, test, actions). Handles FPP wrapping response in HTML. */
 function parseLastJson(text) {
-    var i = (typeof text === 'string' ? text : '').lastIndexOf('{');
+    var s = typeof text === 'string' ? text : '';
+    var i = s.lastIndexOf('{');
     if (i < 0) return {};
-    try { return JSON.parse(text.substring(i)); } catch (e) { return {}; }
+    var depth = 0, end = -1;
+    for (var j = i; j < s.length; j++) {
+        if (s[j] === '{') depth++;
+        else if (s[j] === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    if (end < 0) return {};
+    try { return JSON.parse(s.substring(i, end + 1)); } catch (e) { return {}; }
 }
 /** Ensure items is an array of strings for dropdowns. */
 function normalizeListItems(arr) {
@@ -388,7 +400,7 @@ function renderRules() {
 }
 
 function updateReceiverStatus() {
-    var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=sbus_status.php';
+    var apiUrl = pluginApiUrl('sbus_status.php');
     var statusEl = document.getElementById('receiverStatusText');
     var tableEl = document.getElementById('channelTable');
     var flagsEl = document.getElementById('receiverFlags');
@@ -404,11 +416,7 @@ function updateReceiverStatus() {
         .then(function(text) {
             if (timedOut) return;
             clearTimeout(timeoutId);
-            var data = {};
-            try {
-                var m = text.match(/\{[\s\S]*\}/);
-                if (m) data = JSON.parse(m[0]);
-            } catch (e) {}
+            var data = parseLastJson(text);
             var heartbeatLine = '';
             if (data.lastHeartbeat && typeof data.lastHeartbeat === 'number') {
                 var sec = Math.round(Date.now() / 1000 - data.lastHeartbeat);
@@ -480,15 +488,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var resultEl = document.getElementById('daemonActionResult');
         if (btn) btn.disabled = true;
         if (resultEl) resultEl.textContent = 'Running…';
-        var url = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=' + encodeURIComponent(action);
-        fetch(url).then(function(r) { return r.text(); }).then(function(text) {
-            var data;
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                var m = text.match(/\{[\s\S]*?\}(?=\s*$|\s*<)/);
-                data = m ? JSON.parse(m[0]) : { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
-            }
+        var url = pluginApiUrl('actions.php', '&action=' + encodeURIComponent(action));
+        fetch(url).then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).then(function(text) {
+            var data = parseLastJson(text);
+            if (typeof data.ok === 'undefined' && typeof data.message === 'undefined') data = { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
             if (resultEl) resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
             if (data.ok && document.getElementById('btnRefreshStatus')) updateReceiverStatus();
         }).catch(function(err) {
