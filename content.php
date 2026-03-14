@@ -147,19 +147,27 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 </div>
 
 <script>
-var rules = <?php echo $rulesJson ?: '[]'; ?>;
+var rules = <?php echo isset($rulesJson) && $rulesJson !== '' ? $rulesJson : '[]'; ?>;
+if (!Array.isArray(rules)) rules = [];
 
-function addRule(ch, minV, maxV, cmd) {
+function appendRuleRow(i) {
     var tbody = document.getElementById('rulesBody');
-    var i = rules.length;
-    rules.push({ channel: ch || 1, minVal: minV ?? 172, maxVal: maxV ?? 1811, command: cmd || '', commandType: 'api' });
+    if (!tbody) return;
+    var r = rules[i];
+    if (!r) return;
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td><input type="number" min="1" max="16" class="rule-channel" data-i="' + i + '" value="' + (rules[i].channel || 1) + '"></td>' +
-        '<td><input type="number" min="172" max="1811" class="rule-min" data-i="' + i + '" value="' + (rules[i].minVal ?? 172) + '"></td>' +
-        '<td><input type="number" min="172" max="1811" class="rule-max" data-i="' + i + '" value="' + (rules[i].maxVal ?? 1811) + '"></td>' +
-        '<td><input type="text" class="rule-cmd" data-i="' + i + '" placeholder="Start Playlist/MyPlaylist" value="' + (rules[i].command || '') + '" style="width:100%"></td>' +
+    tr.innerHTML = '<td><input type="number" min="1" max="16" class="rule-channel" data-i="' + i + '" value="' + (r.channel || 1) + '"></td>' +
+        '<td><input type="number" min="172" max="1811" class="rule-min" data-i="' + i + '" value="' + (r.minVal ?? 172) + '"></td>' +
+        '<td><input type="number" min="172" max="1811" class="rule-max" data-i="' + i + '" value="' + (r.maxVal ?? 1811) + '"></td>' +
+        '<td><input type="text" class="rule-cmd" data-i="' + i + '" placeholder="Start Playlist/MyPlaylist" value="' + (r.command || '') + '" style="width:100%"></td>' +
         '<td><button type="button" class="btn btn-danger btn-sm" onclick="removeRule(' + i + ')">Remove</button></td>';
     tbody.appendChild(tr);
+}
+
+function addRule(ch, minV, maxV, cmd) {
+    var i = rules.length;
+    rules.push({ channel: ch || 1, minVal: minV ?? 172, maxVal: maxV ?? 1811, command: cmd || '', commandType: 'api' });
+    appendRuleRow(i);
 }
 
 function removeRule(i) {
@@ -169,9 +177,10 @@ function removeRule(i) {
 
 function renderRules() {
     var tbody = document.getElementById('rulesBody');
+    if (!tbody) return;
     tbody.innerHTML = '';
     for (var i = 0; i < rules.length; i++) {
-        addRule(rules[i].channel, rules[i].minVal, rules[i].maxVal, rules[i].command);
+        appendRuleRow(i);
     }
 }
 
