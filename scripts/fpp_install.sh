@@ -20,11 +20,15 @@ if [ -n "$FPPDIR" ] && [ -f "${FPPDIR}/scripts/common" ]; then
     . "${FPPDIR}/scripts/common"
 fi
 
-if [ -z "$PLUGINDIR" ]; then
+# Plugin dir: FPP may pass PLUGINDIR=/home/fpp/media/plugins (parent of all plugins). Use this script's path so we find this plugin.
+SCRIPT_PLUGINDIR="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
+if [ -n "$SCRIPT_PLUGINDIR" ] && [ -f "${SCRIPT_PLUGINDIR}/scripts/sbus_fpp_daemon.py" ]; then
+    PLUGINDIR="$SCRIPT_PLUGINDIR"
+elif [ -z "$PLUGINDIR" ]; then
     if [ -n "$FPPDIR" ]; then
         PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
     else
-        PLUGINDIR="$(cd "$(dirname "$0")/.." && pwd)"
+        PLUGINDIR="$SCRIPT_PLUGINDIR"
     fi
 fi
 echo "Plugin directory: $PLUGINDIR"
@@ -62,14 +66,21 @@ else
     echo "  pyserial already installed."
 fi
 
-# Create default config if missing
+# Config: never overwrite existing. Backup outside plugin dir so upgrades that replace the plugin folder don't lose it.
 CONFIG="${PLUGINDIR}/sbus_config.json"
+CONFIG_BACKUP_DIR="/home/fpp/media/config"
+CONFIG_BACKUP="${CONFIG_BACKUP_DIR}/sbus_plugin_config.json.bak"
 echo "Checking config file..."
+if [ -f "$CONFIG" ]; then
+    echo "  Config already exists (unchanged)."
+    [ -d "$CONFIG_BACKUP_DIR" ] || mkdir -p "$CONFIG_BACKUP_DIR" 2>/dev/null
+    [ -w "$CONFIG_BACKUP_DIR" ] && cp "$CONFIG" "$CONFIG_BACKUP" 2>/dev/null && echo "  Backed up for future upgrades."
+elif [ -f "$CONFIG_BACKUP" ]; then
+    cp "$CONFIG_BACKUP" "$CONFIG" 2>/dev/null && echo "  Restored config from backup (preserved across upgrade)." || echo "  Could not restore backup; creating default."
+fi
 if [ ! -f "$CONFIG" ]; then
     echo '{"enabled":0,"serialPort":"/dev/ttyAMA0","baudRate":100000,"fppHost":"127.0.0.1","rules":[]}' > "$CONFIG"
     echo "  Created default config at $CONFIG"
-else
-    echo "  Config already exists."
 fi
 
 # Make scripts executable (including postStart so FPP can run it when fppd starts)
