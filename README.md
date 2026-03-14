@@ -24,6 +24,8 @@ So the **only** code that reads SBUS from the receiver is **`scripts/sbus_fpp_da
 
 **Starting the daemon:** The plugin install adds a systemd unit `fpp-sbus-plugin.service` that runs after fppd at boot, so the SBUS daemon starts when the system boots (if the plugin is enabled in config). If you restart only fppd and the daemon doesn’t come back, use **Restart Daemon** on the plugin config page or run: `sudo systemctl start fpp-sbus-plugin.service`.
 
+**If the install script doesn’t run** when you install from the FPP Plugin Manager, FPP may not be executing `scripts/fpp_install.sh` (e.g. executable bit not preserved). The repo includes a root-level `fpp_install.sh` that delegates to the scripts folder. Ensure the scripts are executable in git so the bit is preserved on clone: `git add --chmod=+x scripts/fpp_install.sh fpp_install.sh` then commit and push. You can also run the install manually once via SSH: `sudo /home/fpp/media/plugins/FPP_Sbus_Plugin/scripts/fpp_install.sh` (adjust path if your FPP install is elsewhere).
+
 ## Requirements
 
 - **Raspberry Pi** with serial port (built-in ttyAMA0 or USB-serial adapter)

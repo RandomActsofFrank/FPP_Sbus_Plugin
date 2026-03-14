@@ -1,11 +1,33 @@
 #!/bin/bash
 # FPP_Sbus_Plugin install script (verbose for FPP install window)
+# FPP runs this with FPPDIR=... SRCDIR=... as arguments; export them so we can use them.
+
+for arg in "$@"; do
+    case "$arg" in
+        FPPDIR=*|SRCDIR=*) export "$arg" ;;
+    esac
+done
 
 echo "=== FrSky SBUS Plugin install ==="
 
-. ${FPPDIR}/scripts/common
+if [ -z "$FPPDIR" ]; then
+    echo "Warning: FPPDIR not set. Using default /home/fpp/media if it exists."
+    [ -d /home/fpp/media ] && export FPPDIR=/home/fpp/media
+    [ -d /opt/fpp ] && [ -z "$FPPDIR" ] && export FPPDIR=/opt/fpp
+fi
 
-echo "Plugin directory: ${FPPDIR}/plugins/FPP_Sbus_Plugin"
+if [ -n "$FPPDIR" ] && [ -f "${FPPDIR}/scripts/common" ]; then
+    . "${FPPDIR}/scripts/common"
+fi
+
+if [ -z "$PLUGINDIR" ]; then
+    if [ -n "$FPPDIR" ]; then
+        PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
+    else
+        PLUGINDIR="$(cd "$(dirname "$0")/.." && pwd)"
+    fi
+fi
+echo "Plugin directory: $PLUGINDIR"
 
 # Ensure python3 is available
 echo "Checking for python3..."
@@ -41,7 +63,6 @@ else
 fi
 
 # Create default config if missing
-PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
 CONFIG="${PLUGINDIR}/sbus_config.json"
 echo "Checking config file..."
 if [ ! -f "$CONFIG" ]; then
@@ -59,10 +80,11 @@ done
 echo "  Done."
 
 # Install systemd unit: run SBUS daemon as a service so it starts at boot (after fppd).
+# Use PLUGINDIR (set from FPPDIR or from this script's path) so we don't require FPPDIR.
 echo "Installing systemd service (fpp-sbus-plugin.service)..."
 FPP_SBUS_SERVICE_NAME="fpp-sbus-plugin.service"
 FPP_SBUS_SERVICE_FILE="/etc/systemd/system/${FPP_SBUS_SERVICE_NAME}"
-if [ -n "$FPPDIR" ] && [ -d "$(dirname "$FPP_SBUS_SERVICE_FILE")" ] && [ -f "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" ]; then
+if [ -n "$PLUGINDIR" ] && [ -f "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" ] && [ -d "$(dirname "$FPP_SBUS_SERVICE_FILE")" ]; then
     PYTHON3="$(command -v python3 2>/dev/null || echo '/usr/bin/python3')"
     cat << EOF > "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp"
 [Unit]
@@ -95,7 +117,7 @@ EOF
     fi
     rm -f "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp" 2>/dev/null
 else
-    echo "  Skipped (FPPDIR not set or systemd dir not writable)."
+    echo "  Skipped (PLUGINDIR=$PLUGINDIR; daemon script or /etc/systemd/system missing?)."
 fi
 
 echo "=== FrSky SBUS plugin install complete ==="
