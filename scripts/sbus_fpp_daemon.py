@@ -21,6 +21,7 @@ import urllib.error
 import urllib.parse
 import os
 import signal
+import fcntl
 
 try:
     import serial
@@ -160,6 +161,9 @@ def call_fpp_api(host, command):
 
 
 def main():
+    if os.geteuid() == 0:
+        print("Do not run the SBUS daemon as root. Use the systemd service (runs as fpp) or: sudo -u fpp ...", file=sys.stderr)
+        sys.exit(1)
     plugin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(plugin_dir, 'sbus_config.json')
 
@@ -187,6 +191,38 @@ def main():
         print("SBUS plugin is disabled in config.")
         sys.exit(0)
 
+    pid_file = os.path.join(plugin_dir, 'sbus_daemon.pid')
+    # Single instance: take exclusive lock on PID file; if we can't get it or another PID is in it and running, exit
+    try:
+        pid_fd = os.open(pid_file, os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError as e:
+        print("Cannot create PID file:", e, file=sys.stderr)
+        sys.exit(1)
+    try:
+        fcntl.flock(pid_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (OSError, BlockingIOError):
+        os.close(pid_fd)
+        print("SBUS daemon already running (lock held). Exiting.", file=sys.stderr)
+        sys.exit(0)
+    try:
+        content = os.read(pid_fd, 64).decode().strip()
+        if content:
+            try:
+                old_pid = int(content.split()[0])
+                if old_pid != os.getpid() and os.path.exists("/proc/%d" % old_pid):
+                    fcntl.flock(pid_fd, fcntl.LOCK_UN)
+                    os.close(pid_fd)
+                    print("SBUS daemon already running (PID %d). Exiting." % old_pid, file=sys.stderr)
+                    sys.exit(0)
+            except (ValueError, OSError):
+                pass
+        os.ftruncate(pid_fd, 0)
+        os.lseek(pid_fd, 0, os.SEEK_SET)
+        os.write(pid_fd, str(os.getpid()).encode())
+    except OSError:
+        pass
+    # Keep pid_fd open (lock held) so no second instance can start; closed in shutdown()
+
     port = config.get('serialPort', '/dev/ttyAMA0')
     baud = config.get('baudRate', SBUS_BAUD)
     fpp_host = config.get('fppHost', '127.0.0.1')
@@ -194,7 +230,6 @@ def main():
 
     status_file = os.path.join(plugin_dir, 'sbus_status.json')
     heartbeat_file = os.path.join(plugin_dir, 'sbus_heartbeat.json')
-    pid_file = os.path.join(plugin_dir, 'sbus_daemon.pid')
     HEARTBEAT_INTERVAL = 15  # seconds
     last_heartbeat_time = 0.0
     CONNECTED_TIMEOUT = 0.5  # seconds without packet = disconnected
@@ -224,17 +259,21 @@ def main():
         )
     except Exception as e:
         print(f"Serial open error: {e}", file=sys.stderr)
+        try:
+            fcntl.flock(pid_fd, fcntl.LOCK_UN)
+            os.close(pid_fd)
+        except Exception:
+            pass
         sys.exit(1)
-
-    try:
-        with open(pid_file, 'w') as f:
-            f.write(str(os.getpid()))
-    except Exception as e:
-        print(f"PID file write error: {e}", file=sys.stderr)
 
     def shutdown(signum=None, frame=None):
         try:
             ser.close()
+        except Exception:
+            pass
+        try:
+            fcntl.flock(pid_fd, fcntl.LOCK_UN)
+            os.close(pid_fd)
         except Exception:
             pass
         try:

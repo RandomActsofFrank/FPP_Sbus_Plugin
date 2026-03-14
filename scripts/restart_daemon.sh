@@ -38,8 +38,16 @@ if ! grep -q '"enabled"\s*:\s*1' "$CONFIG" 2>/dev/null; then
 fi
 
 if [ -f "$DAEMON" ]; then
-    nohup python3 "$DAEMON" >> "${PLUGINDIR}/sbus_daemon.log" 2>&1 </dev/null &
-    echo $! > "$PIDFILE"
+    # Must run as user fpp only (daemon exits if run as root; restart from plugin page would fail otherwise)
+    if [ "$(id -u)" = "0" ] && ! id fpp >/dev/null 2>&1; then
+        echo "Cannot start daemon: user fpp does not exist. Run as user fpp or install the systemd service."
+        exit 1
+    fi
+    if id fpp >/dev/null 2>&1; then
+        nohup sudo -u fpp python3 "$DAEMON" >> "${PLUGINDIR}/sbus_daemon.log" 2>&1 </dev/null &
+    else
+        nohup python3 "$DAEMON" >> "${PLUGINDIR}/sbus_daemon.log" 2>&1 </dev/null &
+    fi
     echo "Daemon restarted"
 else
     echo "Daemon script not found"
