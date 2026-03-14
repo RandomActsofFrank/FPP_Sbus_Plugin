@@ -60,6 +60,16 @@ $rulesJson = json_encode($config['rules'], JSON_PRETTY_PRINT);
 
 // Discover available serial ports
 $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2');
+
+// Load FPP lists server-side so dropdowns have data on page load (avoids AJAX response parsing issues).
+$pluginDirForLists = dirname(__DIR__);
+require_once __DIR__ . '/fpp_lists_functions.inc.php';
+$fppListsData = array(
+    'playlists' => fpp_sbus_get_list($configFile, 'playlists', $pluginDirForLists),
+    'sequences' => fpp_sbus_get_list($configFile, 'sequences', $pluginDirForLists),
+    'effects'    => fpp_sbus_get_list($configFile, 'effects', $pluginDirForLists),
+    'media'      => fpp_sbus_get_list($configFile, 'media', $pluginDirForLists)
+);
 ?>
 
 <div class="container">
@@ -160,7 +170,12 @@ if (!Array.isArray(rules)) rules = [];
 
 var FPP_CMD_TYPES = ['Start Playlist', 'Start Sequence', 'Start Effect', 'Start Media', 'Custom'];
 var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences', 'Start Effect': 'effects', 'Start Media': 'media' };
-var fppLists = { playlists: [], sequences: [], effects: [], media: [] };
+var fppLists = <?php echo json_encode($fppListsData); ?>;
+if (!fppLists || typeof fppLists !== 'object') fppLists = { playlists: [], sequences: [], effects: [], media: [] };
+if (!fppLists.playlists) fppLists.playlists = [];
+if (!fppLists.sequences) fppLists.sequences = [];
+if (!fppLists.effects) fppLists.effects = [];
+if (!fppLists.media) fppLists.media = [];
 var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
 
 /** Parse JSON from plugin response. Prefer object containing "items" (our list response) when FPP wraps page in HTML. */
@@ -440,14 +455,17 @@ function updateReceiverStatus() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    loadFppLists(function() {
-        if (rules.length === 0) addRule();
-        else renderRules();
-    });
-
+    if (rules.length === 0) addRule();
+    else renderRules();
+    refillAllItemDropdowns();
+    var listStatusEl = document.getElementById('listsStatus');
+    if (listStatusEl) {
+        var total = (fppLists.playlists || []).length + (fppLists.sequences || []).length + (fppLists.effects || []).length + (fppLists.media || []).length;
+        listStatusEl.textContent = total > 0 ? 'Lists loaded (' + total + ' items). Click Refresh lists to reload.' : 'No items found. Check FPP Host and content, then click Refresh lists.';
+    }
     var btnRefreshLists = document.getElementById('btnRefreshLists');
     if (btnRefreshLists) btnRefreshLists.addEventListener('click', function() {
-        loadFppLists();
+        window.location.reload();
     });
 
     var btnRefresh = document.getElementById('btnRefreshStatus');
