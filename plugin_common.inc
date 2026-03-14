@@ -1,6 +1,7 @@
 <?php
 /*
  * FrSky SBUS Plugin - Shared helpers (safe headers, logging)
+ * Compatible with PHP 8.2.x (e.g. 8.2.7). Avoids passing null to trim/pathinfo/htmlspecialchars.
  * Callers must define FPP_SBUS_PLUGIN_ROOT before including, e.g.:
  *   if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
  *   require_once __DIR__ . '/plugin_common.inc';

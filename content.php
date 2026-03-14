@@ -43,8 +43,8 @@ if (isset($_POST['save'])) {
                         'channel' => intval($r['channel']),
                         'minVal' => intval($r['minVal']),
                         'maxVal' => intval($r['maxVal']),
-                        'command' => trim($r['command']),
-                        'commandType' => trim($r['commandType'] ?? 'api')
+                        'command' => trim((string)($r['command'] ?? '')),
+                        'commandType' => trim((string)($r['commandType'] ?? 'api'))
                     );
                 }
             }
@@ -133,16 +133,16 @@ $fppListsData = array(
             <?php endforeach; ?>
             <option value="custom" <?php echo $isCustom ? 'selected' : ''; ?>>Custom...</option>
         </select>
-        <input type="text" name="serialPortCustom" id="serialPortCustom" placeholder="/dev/ttyXXX" value="<?php echo $isCustom ? htmlspecialchars($sp) : ''; ?>" style="<?php echo $isCustom ? '' : 'display:none;'; ?>">
+        <input type="text" name="serialPortCustom" id="serialPortCustom" placeholder="/dev/ttyXXX" value="<?php echo $isCustom ? htmlspecialchars((string)($sp ?? '')) : ''; ?>" style="<?php echo $isCustom ? '' : 'display:none;'; ?>">
     </td>
 </tr>
 <tr>
     <td>Baud Rate</td>
-    <td><input type="number" name="baudRate" value="<?php echo htmlspecialchars($config['baudRate']); ?>" required> (SBUS = 100000)</td>
+    <td><input type="number" name="baudRate" value="<?php echo htmlspecialchars((string)($config['baudRate'] ?? '')); ?>" required> (SBUS = 100000)</td>
 </tr>
 <tr>
     <td>FPP Host</td>
-    <td><input type="text" name="fppHost" value="<?php echo htmlspecialchars($config['fppHost']); ?>"> Use <code>127.0.0.1</code> when opening this page from the FPP device; use the device IP or hostname (e.g. <code>fpp.local</code>) when opening from another computer.</td>
+    <td><input type="text" name="fppHost" value="<?php echo htmlspecialchars((string)($config['fppHost'] ?? '')); ?>"> Use <code>127.0.0.1</code> when opening this page from the FPP device; use the device IP or hostname (e.g. <code>fpp.local</code>) when opening from another computer.</td>
 </tr>
 </table>
 
@@ -311,7 +311,11 @@ function appendRuleRow(i) {
         var testUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=test_command.php&command=' + encodeURIComponent(cmd);
         fetch(testUrl).then(function(r) { return r.text(); }).then(function(text) {
             var data = {};
-            try { var m = text.match(/\{[\s\S]*\}/); if (m) data = JSON.parse(m[0]); } catch (e) {}
+            try {
+                var m = text.match(/\{\s*"ok"\s*:\s*(?:true|false)\s*,\s*"message"\s*:\s*"[^"]*"\s*\}/);
+                if (m) data = JSON.parse(m[0]);
+                else { var i = text.lastIndexOf('{'); if (i >= 0) data = JSON.parse(text.substring(i)); }
+            } catch (e) {}
             if (testResult) testResult.textContent = data.ok ? 'OK' : (data.message || 'Failed');
         }).catch(function() { if (testResult) testResult.textContent = 'Error'; });
     });

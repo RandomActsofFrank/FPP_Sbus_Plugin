@@ -19,7 +19,7 @@ if (file_exists($configFile)) {
 }
 
 if (file_exists($pidFile)) {
-    $pid = trim(file_get_contents($pidFile));
+    $pid = trim((string)@file_get_contents($pidFile));
     $running = $pid && file_exists("/proc/$pid");
 }
 
@@ -76,7 +76,7 @@ if (!empty($flags)) echo ' &ndash; ' . implode(', ', $flags);
 
 <?php if (file_exists($logFile) && is_readable($logFile)): ?>
 <h3>Recent Log</h3>
-<pre style="max-height:200px;overflow:auto;background:#f5f5f5;padding:10px;"><?php echo htmlspecialchars(file_get_contents($logFile, false, null, -2048)); ?></pre>
+<pre style="max-height:200px;overflow:auto;background:#f5f5f5;padding:10px;"><?php echo htmlspecialchars((string)@file_get_contents($logFile, false, null, -2048)); ?></pre>
 <?php endif; ?>
 
 <p><a href="plugin.php?plugin=FPP_Sbus_Plugin&page=content.php" class="btn btn-primary">Configure</a></p>

@@ -18,7 +18,7 @@ if (!function_exists('fpp_sbus_extract_names')) {
         if (isset($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as $f) {
                 if (is_string($f)) $out[] = $f;
-                elseif (is_array($f)) $out[] = isset($f['name']) ? $f['name'] : (isset($f['filename']) ? $f['filename'] : (isset($f['path']) ? basename($f['path'], '.' . pathinfo($f['path'], PATHINFO_EXTENSION)) : ''));
+                elseif (is_array($f)) $out[] = isset($f['name']) ? $f['name'] : (isset($f['filename']) ? $f['filename'] : (isset($f['path']) ? basename($f['path'], '.' . pathinfo((string)$f['path'], PATHINFO_EXTENSION)) : ''));
             }
             return array_values(array_filter($out));
         }
@@ -60,8 +60,8 @@ function fpp_sbus_get_list($configFile, $type, $pluginDir) {
     if (file_exists($configFile)) {
         $config = json_decode(file_get_contents($configFile), true) ?: array();
     }
-    $configHost = isset($config['fppHost']) ? trim($config['fppHost']) : '127.0.0.1';
-    $requestHost = isset($_SERVER['HTTP_HOST']) ? trim($_SERVER['HTTP_HOST']) : '';
+    $configHost = trim((string)($config['fppHost'] ?? '')) ?: '127.0.0.1';
+    $requestHost = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
     if (strpos($requestHost, ':') !== false) {
         $requestHost = substr($requestHost, 0, strpos($requestHost, ':'));
     }

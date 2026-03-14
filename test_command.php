@@ -15,8 +15,14 @@ $config = [];
 if (file_exists($configFile)) {
     $config = json_decode(file_get_contents($configFile), true) ?: [];
 }
-$host = isset($config['fppHost']) ? trim($config['fppHost']) : '127.0.0.1';
-$cmd = isset($_REQUEST['command']) ? trim($_REQUEST['command']) : '';
+$configHost = trim((string)($config['fppHost'] ?? '')) ?: '127.0.0.1';
+$requestHost = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+if (strpos($requestHost, ':') !== false) {
+    $requestHost = substr($requestHost, 0, strpos($requestHost, ':'));
+}
+$host = $requestHost !== '' ? $requestHost : $configHost;
+if ($host === '') $host = '127.0.0.1';
+$cmd = trim((string)($_REQUEST['command'] ?? ''));
 
 if ($cmd === '') {
     fpp_sbus_log('test_command.php missing command');
@@ -24,6 +30,7 @@ if ($cmd === '') {
     exit;
 }
 
+// FPP API requires spaces in path segments as %20 (use rawurlencode; do not use urlencode/+).
 $url = null;
 $idx = strpos($cmd, '/');
 if ($idx !== false) {
@@ -55,6 +62,15 @@ if ($raw === false) {
     exit;
 }
 
-$code = (isset($http_response_header) && is_array($http_response_header) && preg_match('#HTTP/\d\.\d\s+(\d+)#', $http_response_header[0], $m)) ? (int)$m[1] : 0;
-fpp_sbus_log('test_command.php result', ['command' => $cmd, 'http_code' => $code]);
-echo json_encode(['ok' => ($code >= 200 && $code < 300), 'message' => $code >= 200 && $code < 300 ? 'Command sent.' : 'FPP returned HTTP ' . $code]);
+$code = 0;
+if (isset($http_response_header) && is_array($http_response_header) && !empty($http_response_header[0])) {
+    if (preg_match('#HTTP/\d\.\d\s+(\d+)#', $http_response_header[0], $m)) {
+        $code = (int)$m[1];
+    }
+}
+if ($code === 0 && $raw !== false) {
+    $code = 200;
+}
+$ok = ($code >= 200 && $code < 300);
+fpp_sbus_log('test_command.php result', ['command' => $cmd, 'url' => $url, 'http_code' => $code, 'ok' => $ok]);
+echo json_encode(['ok' => $ok, 'message' => $ok ? 'Command sent.' : 'FPP returned HTTP ' . $code]);

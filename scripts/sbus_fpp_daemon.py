@@ -90,7 +90,8 @@ def write_status(status_file, parsed):
 
 
 def _fpp_start_url(host, command):
-    """Build FPP REST URL for Start Playlist/Sequence/Effect/Media; else None (use /api/command/)."""
+    """Build FPP REST URL for Start Playlist/Sequence/Effect/Media; else None (use /api/command/).
+    FPP API requires spaces as %20 in path (use quote(..., safe=''); do not use quote_plus)."""
     command = urllib.parse.unquote(command)
     if '/' not in command:
         return None
@@ -99,7 +100,7 @@ def _fpp_start_url(host, command):
     name = (parts[1] or '').strip()
     if not name:
         return None
-    encoded = urllib.parse.quote(name, safe='')
+    encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
     base = f"http://{host}/api/"
     if ctype == 'Start Playlist':
         return f"{base}playlist/{encoded}/start"
@@ -116,6 +117,7 @@ def call_fpp_api(host, command):
     """Send FPP API command via HTTP. Uses REST endpoints for Start Playlist/Sequence/Effect/Media."""
     url = _fpp_start_url(host, command)
     if url is None:
+        # quote(..., safe='/') gives %20 for spaces (not +)
         url = f"http://{host}/api/command/{urllib.parse.quote(command, safe='/')}"
     try:
         req = urllib.request.Request(url)

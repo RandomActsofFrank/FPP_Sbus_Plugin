@@ -18,7 +18,7 @@ if (file_exists($configFile)) {
 $pidFile = $pluginDir . '/sbus_daemon.pid';
 $running = false;
 if (file_exists($pidFile)) {
-    $pid = trim(file_get_contents($pidFile));
+    $pid = trim((string)@file_get_contents($pidFile));
     $running = $pid && @file_exists("/proc/$pid");
 }
 fpp_sbus_log('status', ['running' => $running, 'enabled' => !empty($config['enabled'])]);

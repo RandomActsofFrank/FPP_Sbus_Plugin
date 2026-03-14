@@ -11,7 +11,7 @@ fpp_sbus_json_header();
 
 $pluginDir = dirname(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
-$type = isset($_GET['type']) ? trim($_GET['type']) : '';
+$type = trim((string)($_GET['type'] ?? ''));
 
 $allowed = array('playlists', 'sequences', 'effects', 'media');
 if (!in_array($type, $allowed, true)) {
