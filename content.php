@@ -241,12 +241,20 @@ function appendRuleRow(i) {
             if (fppLists[fppType].length) {
                 fillItemDropdown(itemSel, t, '');
             } else {
-                fetch(fppListsBase + '&type=' + encodeURIComponent(fppType)).then(function(res) { return res.json(); }).then(function(data) {
-                    if (data.items) {
+                fetch(fppListsBase + '&type=' + encodeURIComponent(fppType))
+                .then(function(res) { return res.text(); })
+                .then(function(text) {
+                    var data = {};
+                    try {
+                        var m = text.match(/\{[\s\S]*\}/);
+                        if (m) data = JSON.parse(m[0]);
+                    } catch (e) {}
+                    if (data.items && Array.isArray(data.items)) {
                         fppLists[fppType] = data.items;
                         fillItemDropdown(itemSel, t, '');
                     }
-                }).catch(function() {});
+                })
+                .catch(function() {});
             }
         }
     });
@@ -283,14 +291,22 @@ function loadFppLists(done) {
         if (done) done();
     }
     types.forEach(function(t) {
-        fetch(fppListsBase + '&type=' + encodeURIComponent(t)).then(function(r) { return r.json(); }).then(function(data) {
-            if (data.error) errors.push(data.error);
-            if (data.items && Array.isArray(data.items)) fppLists[t] = data.items;
-            check();
-        }).catch(function() {
-            errors.push('Could not load ' + t + '.');
-            check();
-        });
+        fetch(fppListsBase + '&type=' + encodeURIComponent(t))
+            .then(function(r) { return r.text(); })
+            .then(function(text) {
+                var data = {};
+                try {
+                    var m = text.match(/\{[\s\S]*\}/);
+                    if (m) data = JSON.parse(m[0]);
+                } catch (e) {}
+                if (data.error) errors.push(data.error);
+                if (data.items && Array.isArray(data.items)) fppLists[t] = data.items;
+                check();
+            })
+            .catch(function() {
+                errors.push('Could not load ' + t + '.');
+                check();
+            });
     });
 }
 
