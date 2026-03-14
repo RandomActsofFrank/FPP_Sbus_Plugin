@@ -76,16 +76,23 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 <li><strong>Daemon:</strong> <code>scripts/sbus_fpp_daemon.py</code> runs in the background (started when FPP starts, if the plugin is enabled). It opens the serial port (e.g. /dev/ttyAMA0) at 100000 baud, 8E2.</li>
 <li><strong>Serial → SBUS:</strong> The daemon reads raw bytes, finds 25-byte SBUS packets (header 0x0F, footer 0x00), and decodes the 16 channels (11 bits each) plus ch17/ch18, failsafe, and frame_lost. The protocol is implemented in <code>parse_sbus_packet()</code> in that script.</li>
 <li><strong>Status file:</strong> After each valid packet, the daemon writes <code>sbus_status.json</code> in the plugin directory with last_packet time, channels[1–16], and flags.</li>
-<li><strong>Status page:</strong> <strong>Status &rarr; SBUS Status</strong> reads <code>sbus_status.json</code> when you open it and shows receiver/channel data (no JavaScript polling).</li>
+<li><strong>This page:</strong> Click <strong>Refresh status</strong> to fetch receiver and channel data from <code>sbus_status.php</code> (reads <code>sbus_status.json</code>).</li>
 </ol>
 <p>So the only code that reads SBUS from the receiver is <strong>scripts/sbus_fpp_daemon.py</strong>. Rule triggering (FPP API calls) also runs in that daemon.</p>
 </div>
 </div>
 
-<h3>Daemon</h3>
-<div class="panel panel-default">
+<h3>Receiver Status</h3>
+<div id="receiverStatus" class="panel panel-default">
     <div class="panel-body">
-        <p class="text-muted small">Receiver and channel status: use <strong>Status &rarr; SBUS Status</strong> in the menu (no JavaScript status checks on this page).</p>
+        <p id="receiverStatusText">Click <strong>Refresh status</strong> to check receiver and channel data.</p>
+        <button type="button" class="btn btn-sm btn-default" id="btnRefreshStatus" style="margin-bottom:8px;">Refresh status</button>
+        <table class="table table-condensed table-bordered" id="channelTable" style="max-width:600px;margin-top:10px;display:none;">
+            <thead><tr><th>Ch</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th></tr></thead>
+            <tbody><tr><td>Value</td><td id="ch1">-</td><td id="ch2">-</td><td id="ch3">-</td><td id="ch4">-</td><td id="ch5">-</td><td id="ch6">-</td><td id="ch7">-</td><td id="ch8">-</td><td id="ch9">-</td><td id="ch10">-</td><td id="ch11">-</td><td id="ch12">-</td><td id="ch13">-</td><td id="ch14">-</td><td id="ch15">-</td><td id="ch16">-</td></tr></tbody>
+        </table>
+        <p id="receiverFlags" class="text-muted small" style="margin-top:8px;"></p>
+        <h4 style="margin-top:16px;">Daemon</h4>
         <div style="margin-top:8px;">
             <button type="button" class="btn btn-primary btn-sm" id="btnRestartDaemon">Restart Daemon</button>
             <button type="button" class="btn btn-warning btn-sm" id="btnStopDaemon">Stop Daemon</button>
@@ -131,10 +138,10 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 
 <h3>Channel → Effect Rules</h3>
 <p>When an SBUS channel value falls within min-max, the command is sent. SBUS channels use values 172–1811 (FrSky 0–100%).</p>
-<p><strong>Command types:</strong> <code>api</code> = FPP REST API (e.g. <code>Start Playlist/My Playlist</code> or <code>Start Effect/Effect Name</code>)</p>
+<p>Choose a <strong>Command</strong> and then an <strong>Item</strong> (playlist, sequence, effect, or media). Use <strong>Custom</strong> for other FPP commands (e.g. <code>Stop</code>, <code>Volume Set/50</code>).</p>
 
 <table class="table table-bordered" id="rulesTable">
-<thead><tr><th>Channel</th><th>Min Value</th><th>Max Value</th><th>FPP Command</th><th>Action</th></tr></thead>
+<thead><tr><th>Channel</th><th>Min</th><th>Max</th><th>Command</th><th>Item</th><th>Action</th></tr></thead>
 <tbody id="rulesBody">
 </tbody>
 </table>
@@ -150,18 +157,110 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 var rules = <?php echo isset($rulesJson) && $rulesJson !== '' ? $rulesJson : '[]'; ?>;
 if (!Array.isArray(rules)) rules = [];
 
+var FPP_CMD_TYPES = ['Start Playlist', 'Start Sequence', 'Start Effect', 'Custom'];
+var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences', 'Start Effect': 'effects' };
+var fppLists = { playlists: [], sequences: [], effects: [] };
+var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
+
+function parseCommand(cmd) {
+    var c = (cmd || '').trim();
+    if (!c) return { type: 'Start Playlist', item: '', isCustom: true };
+    var idx = c.indexOf('/');
+    if (idx < 0) return { type: 'Custom', item: c, isCustom: true };
+    var type = c.substring(0, idx).trim();
+    var item = c.substring(idx + 1).trim();
+    if (FPP_CMD_TYPES.indexOf(type) >= 0 && type !== 'Custom') return { type: type, item: item, isCustom: false };
+    return { type: 'Custom', item: c, isCustom: true };
+}
+
+function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function fillItemDropdown(sel, type, selectedItem) {
+    if (!sel) return;
+    var list = type === 'Start Playlist' ? fppLists.playlists : type === 'Start Sequence' ? fppLists.sequences : type === 'Start Effect' ? fppLists.effects : [];
+    var current = sel.value;
+    sel.innerHTML = '<option value="">— Select —</option>';
+    for (var j = 0; j < list.length; j++) {
+        var opt = document.createElement('option');
+        opt.value = list[j];
+        opt.textContent = list[j];
+        if (list[j] === selectedItem || list[j] === current) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    if (!sel.value && selectedItem) {
+        var o = document.createElement('option');
+        o.value = selectedItem;
+        o.textContent = selectedItem;
+        o.selected = true;
+        sel.insertBefore(o, sel.firstChild.nextSibling);
+    }
+}
+
 function appendRuleRow(i) {
     var tbody = document.getElementById('rulesBody');
     if (!tbody) return;
     var r = rules[i];
     if (!r) return;
+    var parsed = parseCommand(r.command);
     var tr = document.createElement('tr');
+    tr.setAttribute('data-i', i);
+    var typeOpts = FPP_CMD_TYPES.map(function(t) {
+        return '<option value="' + esc(t) + '"' + (parsed.type === t ? ' selected' : '') + '>' + esc(t) + '</option>';
+    }).join('');
+    var itemVal = parsed.isCustom ? '' : parsed.item;
     tr.innerHTML = '<td><input type="number" min="1" max="16" class="rule-channel" data-i="' + i + '" value="' + (r.channel || 1) + '"></td>' +
         '<td><input type="number" min="172" max="1811" class="rule-min" data-i="' + i + '" value="' + (r.minVal ?? 172) + '"></td>' +
         '<td><input type="number" min="172" max="1811" class="rule-max" data-i="' + i + '" value="' + (r.maxVal ?? 1811) + '"></td>' +
-        '<td><input type="text" class="rule-cmd" data-i="' + i + '" placeholder="Start Playlist/MyPlaylist" value="' + (r.command || '') + '" style="width:100%"></td>' +
+        '<td><select class="rule-cmd-type" data-i="' + i + '">' + typeOpts + '</select></td>' +
+        '<td><select class="rule-item" data-i="' + i + '" style="min-width:140px;"></select><input type="text" class="rule-cmd-custom" data-i="' + i + '" placeholder="e.g. Stop" style="display:none;min-width:140px;" value="' + esc(parsed.isCustom ? parsed.item : '') + '"></td>' +
         '<td><button type="button" class="btn btn-danger btn-sm" onclick="removeRule(' + i + ')">Remove</button></td>';
     tbody.appendChild(tr);
+    var typeSel = tr.querySelector('.rule-cmd-type');
+    var itemSel = tr.querySelector('.rule-item');
+    var customInp = tr.querySelector('.rule-cmd-custom');
+    if (parsed.type === 'Custom') {
+        itemSel.style.display = 'none';
+        customInp.style.display = 'inline';
+    } else {
+        fillItemDropdown(itemSel, parsed.type, parsed.item);
+    }
+    typeSel.addEventListener('change', function() {
+        var t = typeSel.value;
+        if (t === 'Custom') {
+            itemSel.style.display = 'none';
+            customInp.style.display = 'inline';
+            if (!customInp.value && itemSel.value) customInp.value = typeSel.options[typeSel.selectedIndex].text + '/' + itemSel.value;
+        } else {
+            customInp.style.display = 'none';
+            itemSel.style.display = 'inline';
+            itemSel.innerHTML = '<option value="">— Select —</option>';
+            var fppType = FPP_TYPE_MAP[t];
+            if (fppLists[fppType].length) {
+                fillItemDropdown(itemSel, t, '');
+            } else {
+                fetch(fppListsBase + '&type=' + encodeURIComponent(fppType)).then(function(res) { return res.json(); }).then(function(data) {
+                    if (data.items) {
+                        fppLists[fppType] = data.items;
+                        fillItemDropdown(itemSel, t, '');
+                    }
+                }).catch(function() {});
+            }
+        }
+    });
+}
+
+function loadFppLists(done) {
+    var types = ['playlists', 'sequences', 'effects'];
+    var left = types.length;
+    function check() { left--; if (left === 0 && done) done(); }
+    types.forEach(function(t) {
+        fetch(fppListsBase + '&type=' + encodeURIComponent(t)).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.items) fppLists[t] = data.items;
+            check();
+        }).catch(function() { check(); });
+    });
 }
 
 function addRule(ch, minV, maxV, cmd) {
@@ -184,9 +283,78 @@ function renderRules() {
     }
 }
 
+function updateReceiverStatus() {
+    var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=sbus_status.php';
+    var statusEl = document.getElementById('receiverStatusText');
+    var tableEl = document.getElementById('channelTable');
+    var flagsEl = document.getElementById('receiverFlags');
+    var btn = document.getElementById('btnRefreshStatus');
+    if (!statusEl) return;
+    if (btn) btn.disabled = true;
+    statusEl.textContent = 'Checking…';
+    var timedOut = false;
+    var timeoutId = setTimeout(function() { timedOut = true; }, 5000);
+    var receiverDetected = false;
+    fetch(apiUrl)
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+            if (timedOut) return;
+            clearTimeout(timeoutId);
+            var data = {};
+            try {
+                var m = text.match(/\{[\s\S]*\}/);
+                if (m) data = JSON.parse(m[0]);
+            } catch (e) {}
+            if (data.receiver && data.receiver.connected) {
+                receiverDetected = true;
+                statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data below.';
+                if (tableEl) tableEl.style.display = 'table';
+                for (var i = 1; i <= 16; i++) {
+                    var el = document.getElementById('ch' + i);
+                    if (el && data.receiver.channels) el.textContent = data.receiver.channels[i - 1] !== undefined ? data.receiver.channels[i - 1] : '-';
+                }
+                var flags = [];
+                if (data.receiver.failsafe) flags.push('Failsafe');
+                if (data.receiver.frameLost) flags.push('Frame lost');
+                if (data.receiver.ch17) flags.push('Ch17');
+                if (data.receiver.ch18) flags.push('Ch18');
+                if (flagsEl) flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
+            } else {
+                if (data.receiver) {
+                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
+                } else if (!data.running) {
+                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS and restart FPP.';
+                } else {
+                    statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
+                }
+                if (tableEl) tableEl.style.display = 'none';
+                if (flagsEl) flagsEl.textContent = '';
+            }
+        })
+        .catch(function() {
+            clearTimeout(timeoutId);
+            if (!timedOut && statusEl) statusEl.innerHTML = '<span class="label label-default">Could not fetch status</span>';
+        })
+        .finally(function() {
+            if (timedOut && statusEl) {
+                statusEl.innerHTML = '<span class="label label-default">Request timed out</span>';
+            }
+            if (receiverDetected) {
+                if (btn) btn.disabled = false;
+            } else {
+                if (btn) btn.disabled = false;
+            }
+        });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    if (rules.length === 0) addRule();
-    else renderRules();
+    loadFppLists(function() {
+        if (rules.length === 0) addRule();
+        else renderRules();
+    });
+
+    var btnRefresh = document.getElementById('btnRefreshStatus');
+    if (btnRefresh) btnRefresh.addEventListener('click', updateReceiverStatus);
 
     function doDaemonAction(action, btnId) {
         var btn = document.getElementById(btnId);
@@ -203,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data = m ? JSON.parse(m[0]) : { ok: false, message: 'Response was not JSON. Check if page loaded correctly.' };
             }
             if (resultEl) resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
+            if (data.ok && document.getElementById('btnRefreshStatus')) updateReceiverStatus();
         }).catch(function(err) {
             if (resultEl) resultEl.textContent = 'Request failed. Try the link below or run the script via SSH.';
         }).finally(function() {
@@ -226,17 +395,26 @@ document.addEventListener('DOMContentLoaded', function() {
     if (form) form.addEventListener('submit', function() {
         var rows = document.querySelectorAll('#rulesBody tr');
         var out = [];
-        rows.forEach(function(row, i) {
+        rows.forEach(function(row) {
             var ch = row.querySelector('.rule-channel');
             var minV = row.querySelector('.rule-min');
             var maxV = row.querySelector('.rule-max');
-            var cmd = row.querySelector('.rule-cmd');
-            if (ch && minV && maxV && cmd && cmd.value.trim()) {
+            var typeSel = row.querySelector('.rule-cmd-type');
+            var itemSel = row.querySelector('.rule-item');
+            var customInp = row.querySelector('.rule-cmd-custom');
+            if (!ch || !minV || !maxV || !typeSel) return;
+            var cmd = '';
+            if (typeSel.value === 'Custom' && customInp) {
+                cmd = customInp.value.trim();
+            } else if (itemSel && typeSel.value && itemSel.value) {
+                cmd = typeSel.value + '/' + itemSel.value;
+            }
+            if (cmd) {
                 out.push({
                     channel: parseInt(ch.value) || 1,
                     minVal: parseInt(minV.value) || 172,
                     maxVal: parseInt(maxV.value) || 1811,
-                    command: cmd.value.trim(),
+                    command: cmd,
                     commandType: 'api'
                 });
             }
