@@ -196,7 +196,10 @@ def main():
     try:
         pid_fd = os.open(pid_file, os.O_RDWR | os.O_CREAT, 0o644)
     except OSError as e:
-        print("Cannot create PID file:", e, file=sys.stderr)
+        if e.errno == 13:  # EACCES
+            print("Cannot create PID file (permission denied). If it was left by a root run, remove it or re-run plugin install:", pid_file, file=sys.stderr)
+        else:
+            print("Cannot create PID file:", e, file=sys.stderr)
         sys.exit(1)
     try:
         fcntl.flock(pid_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
