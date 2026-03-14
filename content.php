@@ -166,7 +166,7 @@ function renderRules() {
 }
 
 function updateReceiverStatus() {
-    var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=api.php';
+    var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=sbus_status.php';
     fetch(apiUrl).then(function(r) { return r.json(); }).then(function(data) {
         var statusEl = document.getElementById('receiverStatusText');
         var tableEl = document.getElementById('channelTable');
