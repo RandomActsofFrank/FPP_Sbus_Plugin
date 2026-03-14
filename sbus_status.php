@@ -3,6 +3,7 @@
  * FrSky SBUS Plugin - Status JSON (receiver/daemon state)
  * Used by config page only. Named to avoid conflicting with FPP core api/file endpoints.
  */
+if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
 require_once __DIR__ . '/plugin_common.inc';
 fpp_sbus_json_header();
 fpp_sbus_log('sbus_status.php requested');

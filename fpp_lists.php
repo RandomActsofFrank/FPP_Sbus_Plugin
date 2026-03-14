@@ -4,6 +4,7 @@
  * Returns JSON: { "items": ["name1", "name2", ...] } or { "error": "message" }
  * Tries FPP REST API first, then falls back to listing local media directories.
  */
+if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
 require_once __DIR__ . '/plugin_common.inc';
 fpp_sbus_json_header();
 

@@ -138,11 +138,11 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 
 <h3>Channel → Effect Rules</h3>
 <p>When an SBUS channel value falls within min-max, the command is sent. SBUS channels use values 172–1811 (FrSky 0–100%).</p>
-<p>Choose a <strong>Command</strong> and then an <strong>Item</strong> (playlist, sequence, effect, or media). Use <strong>Custom</strong> for other FPP commands (e.g. <code>Stop</code>, <code>Volume Set/50</code>).</p>
+<p>Choose a <strong>Command</strong> and then an <strong>Item</strong> (playlist, sequence, effect, or media). Use <strong>Custom</strong> for other FPP commands (e.g. <code>Stop</code>, <code>Volume Set/50</code>). <a href="apihelp.php" target="_blank" rel="noopener">FPP API / Command reference</a></p>
 <p><button type="button" class="btn btn-sm btn-default" id="btnRefreshLists">Refresh lists</button> <span id="listsStatus" class="text-muted small"></span></p>
 
 <table class="table table-bordered" id="rulesTable">
-<thead><tr><th>Channel</th><th>Min</th><th>Max</th><th>Command</th><th>Item</th><th>Action</th></tr></thead>
+<thead><tr><th>Channel</th><th>Min</th><th>Max</th><th>Command</th><th>Item</th><th>Test</th><th>Action</th></tr></thead>
 <tbody id="rulesBody">
 </tbody>
 </table>
@@ -158,9 +158,9 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 var rules = <?php echo isset($rulesJson) && $rulesJson !== '' ? $rulesJson : '[]'; ?>;
 if (!Array.isArray(rules)) rules = [];
 
-var FPP_CMD_TYPES = ['Start Playlist', 'Start Sequence', 'Start Effect', 'Custom'];
-var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences', 'Start Effect': 'effects' };
-var fppLists = { playlists: [], sequences: [], effects: [] };
+var FPP_CMD_TYPES = ['Start Playlist', 'Start Sequence', 'Start Effect', 'Start Media', 'Custom'];
+var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences', 'Start Effect': 'effects', 'Start Media': 'media' };
+var fppLists = { playlists: [], sequences: [], effects: [], media: [] };
 var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
 
 function parseCommand(cmd) {
@@ -180,7 +180,7 @@ function esc(s) {
 
 function fillItemDropdown(sel, type, selectedItem) {
     if (!sel) return;
-    var list = type === 'Start Playlist' ? fppLists.playlists : type === 'Start Sequence' ? fppLists.sequences : type === 'Start Effect' ? fppLists.effects : [];
+    var list = (FPP_TYPE_MAP[type] && fppLists[FPP_TYPE_MAP[type]]) ? fppLists[FPP_TYPE_MAP[type]] : [];
     var current = sel.value;
     sel.innerHTML = '<option value="">— Select —</option>';
     for (var j = 0; j < list.length; j++) {
@@ -216,6 +216,7 @@ function appendRuleRow(i) {
         '<td><input type="number" min="172" max="1811" class="rule-max" data-i="' + i + '" value="' + (r.maxVal ?? 1811) + '"></td>' +
         '<td><select class="rule-cmd-type" data-i="' + i + '">' + typeOpts + '</select></td>' +
         '<td><select class="rule-item" data-i="' + i + '" style="min-width:140px;"></select><input type="text" class="rule-cmd-custom" data-i="' + i + '" placeholder="e.g. Stop" style="display:none;min-width:140px;" value="' + esc(parsed.isCustom ? parsed.item : '') + '"></td>' +
+        '<td><button type="button" class="btn btn-sm btn-default rule-test-btn" data-i="' + i + '">Test</button><span class="rule-test-result small" data-i="' + i + '"></span></td>' +
         '<td><button type="button" class="btn btn-danger btn-sm" onclick="removeRule(' + i + ')">Remove</button></td>';
     tbody.appendChild(tr);
     var typeSel = tr.querySelector('.rule-cmd-type');
@@ -238,9 +239,9 @@ function appendRuleRow(i) {
             itemSel.style.display = 'inline';
             itemSel.innerHTML = '<option value="">— Select —</option>';
             var fppType = FPP_TYPE_MAP[t];
-            if (fppLists[fppType].length) {
+            if (fppType && fppLists[fppType] && fppLists[fppType].length) {
                 fillItemDropdown(itemSel, t, '');
-            } else {
+            } else if (fppType) {
                 fetch(fppListsBase + '&type=' + encodeURIComponent(fppType))
                 .then(function(res) { return res.text(); })
                 .then(function(text) {
@@ -257,6 +258,24 @@ function appendRuleRow(i) {
                 .catch(function() {});
             }
         }
+    });
+    var testBtn = tr.querySelector('.rule-test-btn');
+    var testResult = tr.querySelector('.rule-test-result');
+    if (testBtn) testBtn.addEventListener('click', function() {
+        var typeS = tr.querySelector('.rule-cmd-type');
+        var itemS = tr.querySelector('.rule-item');
+        var customS = tr.querySelector('.rule-cmd-custom');
+        var cmd = '';
+        if (typeS && typeS.value === 'Custom' && customS) cmd = customS.value.trim();
+        else if (typeS && itemS && typeS.value && itemS.value) cmd = typeS.value + '/' + itemS.value;
+        if (!cmd) { if (testResult) testResult.textContent = 'Set command first.'; return; }
+        if (testResult) testResult.textContent = '…';
+        var testUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=test_command.php&command=' + encodeURIComponent(cmd);
+        fetch(testUrl).then(function(r) { return r.text(); }).then(function(text) {
+            var data = {};
+            try { var m = text.match(/\{[\s\S]*\}/); if (m) data = JSON.parse(m[0]); } catch (e) {}
+            if (testResult) testResult.textContent = data.ok ? 'OK' : (data.message || 'Failed');
+        }).catch(function() { if (testResult) testResult.textContent = 'Error'; });
     });
 }
 
@@ -275,7 +294,7 @@ function refillAllItemDropdowns() {
 function loadFppLists(done) {
     var statusEl = document.getElementById('listsStatus');
     if (statusEl) statusEl.textContent = 'Loading…';
-    var types = ['playlists', 'sequences', 'effects'];
+    var types = ['playlists', 'sequences', 'effects', 'media'];
     var left = types.length;
     var errors = [];
     function check() {
@@ -283,7 +302,7 @@ function loadFppLists(done) {
         if (left !== 0) return;
         refillAllItemDropdowns();
         if (statusEl) {
-            var total = fppLists.playlists.length + fppLists.sequences.length + fppLists.effects.length;
+            var total = (fppLists.playlists || []).length + (fppLists.sequences || []).length + (fppLists.effects || []).length + (fppLists.media || []).length;
             if (errors.length) statusEl.textContent = errors[0];
             else if (total === 0) statusEl.textContent = 'No playlists/sequences/effects found. Set FPP Host to the address you use to open this page (e.g. 127.0.0.1 or your Pi IP), add content in FPP, then click Refresh lists. You can also use Custom to type commands.';
             else statusEl.textContent = 'Lists loaded.';

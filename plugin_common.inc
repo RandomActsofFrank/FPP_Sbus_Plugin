@@ -1,7 +1,9 @@
 <?php
 /*
  * FrSky SBUS Plugin - Shared helpers (safe headers, logging)
- * Include from plugin PHP pages: require_once __DIR__ . '/plugin_common.inc';
+ * Callers must define FPP_SBUS_PLUGIN_ROOT before including, e.g.:
+ *   if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
+ *   require_once __DIR__ . '/plugin_common.inc';
  */
 
 if (!function_exists('fpp_sbus_log')) {
@@ -13,7 +15,8 @@ if (!function_exists('fpp_sbus_log')) {
     function fpp_sbus_log($message, $context = []) {
         static $logFile = null;
         if ($logFile === null) {
-            $logFile = (function_exists('dirname') && defined('__DIR__')) ? __DIR__ . '/fpp_sbus.log' : '';
+            $base = defined('FPP_SBUS_PLUGIN_ROOT') ? FPP_SBUS_PLUGIN_ROOT : __DIR__;
+            $logFile = $base . '/fpp_sbus.log';
         }
         if ($logFile === '' || $logFile === false) return;
         $ts = date('Y-m-d H:i:s');

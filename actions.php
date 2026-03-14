@@ -3,6 +3,7 @@
  * FrSky SBUS Plugin - Daemon control actions
  * Handles Stop, Restart, Uninstall (cleanup) from config page.
  */
+if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
 require_once __DIR__ . '/plugin_common.inc';
 if (ob_get_level()) ob_end_clean();
 fpp_sbus_json_header();
