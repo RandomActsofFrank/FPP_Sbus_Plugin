@@ -132,7 +132,7 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 </tr>
 <tr>
     <td>FPP Host</td>
-    <td><input type="text" name="fppHost" value="<?php echo htmlspecialchars($config['fppHost']); ?>"> (127.0.0.1 for local)</td>
+    <td><input type="text" name="fppHost" value="<?php echo htmlspecialchars($config['fppHost']); ?>"> Use <code>127.0.0.1</code> when opening this page from the FPP device; use the device IP or hostname (e.g. <code>fpp.local</code>) when opening from another computer.</td>
 </tr>
 </table>
 
@@ -285,7 +285,7 @@ function loadFppLists(done) {
         if (statusEl) {
             var total = fppLists.playlists.length + fppLists.sequences.length + fppLists.effects.length;
             if (errors.length) statusEl.textContent = errors[0];
-            else if (total === 0) statusEl.textContent = 'No items from FPP. Check FPP Host; use Refresh lists to retry.';
+            else if (total === 0) statusEl.textContent = 'No playlists/sequences/effects found. Set FPP Host to the address you use to open this page (e.g. 127.0.0.1 or your Pi IP), add content in FPP, then click Refresh lists. You can also use Custom to type commands.';
             else statusEl.textContent = 'Lists loaded.';
         }
         if (done) done();
@@ -370,7 +370,7 @@ function updateReceiverStatus() {
                 if (data.receiver) {
                     statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
                 } else if (!data.running) {
-                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS and restart FPP.';
+                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS above, save, then restart FPP or click <strong>Restart Daemon</strong> below.';
                 } else {
                     statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
                 }

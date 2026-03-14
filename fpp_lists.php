@@ -20,7 +20,12 @@ $config = array();
 if (file_exists($configFile)) {
     $config = json_decode(file_get_contents($configFile), true) ?: array();
 }
-$host = isset($config['fppHost']) ? trim($config['fppHost']) : '127.0.0.1';
+$configHost = isset($config['fppHost']) ? trim($config['fppHost']) : '127.0.0.1';
+$requestHost = isset($_SERVER['HTTP_HOST']) ? trim($_SERVER['HTTP_HOST']) : '';
+if (strpos($requestHost, ':') !== false) {
+    $requestHost = substr($requestHost, 0, strpos($requestHost, ':'));
+}
+$hostsToTry = array_unique(array_filter(array($configHost, $requestHost, '127.0.0.1', 'localhost')));
 
 $items = array();
 
@@ -44,22 +49,24 @@ function extractNames($data) {
     return $out;
 }
 
-$urls = array(
-    'http://' . $host . '/api/files/' . $type,
-    'http://' . $host . '/api/file/' . $type
-);
-if ($type === 'playlists') {
-    $urls[] = 'http://' . $host . '/api/files/playlist';
-    $urls[] = 'http://' . $host . '/api/file/playlist';
-}
 $ctx = stream_context_create(array('http' => array('timeout' => 5)));
-foreach ($urls as $url) {
-    $raw = @file_get_contents($url, false, $ctx);
-    if ($raw !== false) {
-        $data = json_decode($raw, true);
-        $items = extractNames($data);
-        if (!empty($items)) break;
-        if (is_array($data) && isset($data['error'])) continue;
+foreach ($hostsToTry as $host) {
+    $urls = array(
+        'http://' . $host . '/api/files/' . $type,
+        'http://' . $host . '/api/file/' . $type
+    );
+    if ($type === 'playlists') {
+        $urls[] = 'http://' . $host . '/api/files/playlist';
+        $urls[] = 'http://' . $host . '/api/file/playlist';
+    }
+    foreach ($urls as $url) {
+        $raw = @file_get_contents($url, false, $ctx);
+        if ($raw !== false) {
+            $data = json_decode($raw, true);
+            $items = extractNames($data);
+            if (!empty($items)) break 2;
+            if (is_array($data) && isset($data['error'])) continue;
+        }
     }
 }
 
