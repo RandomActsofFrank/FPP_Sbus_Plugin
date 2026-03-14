@@ -139,6 +139,7 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 <h3>Channel → Effect Rules</h3>
 <p>When an SBUS channel value falls within min-max, the command is sent. SBUS channels use values 172–1811 (FrSky 0–100%).</p>
 <p>Choose a <strong>Command</strong> and then an <strong>Item</strong> (playlist, sequence, effect, or media). Use <strong>Custom</strong> for other FPP commands (e.g. <code>Stop</code>, <code>Volume Set/50</code>).</p>
+<p><button type="button" class="btn btn-sm btn-default" id="btnRefreshLists">Refresh lists</button> <span id="listsStatus" class="text-muted small"></span></p>
 
 <table class="table table-bordered" id="rulesTable">
 <thead><tr><th>Channel</th><th>Min</th><th>Max</th><th>Command</th><th>Item</th><th>Action</th></tr></thead>
@@ -251,15 +252,45 @@ function appendRuleRow(i) {
     });
 }
 
+function refillAllItemDropdowns() {
+    var rows = document.querySelectorAll('#rulesBody tr');
+    rows.forEach(function(row) {
+        var typeSel = row.querySelector('.rule-cmd-type');
+        var itemSel = row.querySelector('.rule-item');
+        if (!typeSel || !itemSel || typeSel.value === 'Custom') return;
+        if (itemSel.style.display === 'none') return;
+        var current = itemSel.value;
+        fillItemDropdown(itemSel, typeSel.value, current);
+    });
+}
+
 function loadFppLists(done) {
+    var statusEl = document.getElementById('listsStatus');
+    if (statusEl) statusEl.textContent = 'Loading…';
     var types = ['playlists', 'sequences', 'effects'];
     var left = types.length;
-    function check() { left--; if (left === 0 && done) done(); }
+    var errors = [];
+    function check() {
+        left--;
+        if (left !== 0) return;
+        refillAllItemDropdowns();
+        if (statusEl) {
+            var total = fppLists.playlists.length + fppLists.sequences.length + fppLists.effects.length;
+            if (errors.length) statusEl.textContent = errors[0];
+            else if (total === 0) statusEl.textContent = 'No items from FPP. Check FPP Host; use Refresh lists to retry.';
+            else statusEl.textContent = 'Lists loaded.';
+        }
+        if (done) done();
+    }
     types.forEach(function(t) {
         fetch(fppListsBase + '&type=' + encodeURIComponent(t)).then(function(r) { return r.json(); }).then(function(data) {
-            if (data.items) fppLists[t] = data.items;
+            if (data.error) errors.push(data.error);
+            if (data.items && Array.isArray(data.items)) fppLists[t] = data.items;
             check();
-        }).catch(function() { check(); });
+        }).catch(function() {
+            errors.push('Could not load ' + t + '.');
+            check();
+        });
     });
 }
 
@@ -351,6 +382,11 @@ document.addEventListener('DOMContentLoaded', function() {
     loadFppLists(function() {
         if (rules.length === 0) addRule();
         else renderRules();
+    });
+
+    var btnRefreshLists = document.getElementById('btnRefreshLists');
+    if (btnRefreshLists) btnRefreshLists.addEventListener('click', function() {
+        loadFppLists();
     });
 
     var btnRefresh = document.getElementById('btnRefreshStatus');

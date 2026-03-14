@@ -2,6 +2,7 @@
 /*
  * FrSky SBUS Plugin - Proxy FPP file/playlist lists for dropdowns
  * Returns JSON: { "items": ["name1", "name2", ...] } or { "error": "message" }
+ * Tries FPP REST API first, then falls back to listing local media directories.
  */
 header('Content-Type: application/json');
 
@@ -20,37 +21,74 @@ if (file_exists($configFile)) {
     $config = json_decode(file_get_contents($configFile), true) ?: array();
 }
 $host = isset($config['fppHost']) ? trim($config['fppHost']) : '127.0.0.1';
-$url = 'http://' . $host . '/api/files/' . $type;
 
-$ctx = stream_context_create(array(
-    'http' => array('timeout' => 5)
-));
-$raw = @file_get_contents($url, false, $ctx);
-if ($raw === false) {
-    echo json_encode(array('error' => 'Could not reach FPP at ' . $host . '. Check FPP Host in config.'));
-    exit;
-}
-
-$data = json_decode($raw, true);
 $items = array();
 
-if (is_array($data)) {
+function extractNames($data) {
+    $out = array();
+    if (!is_array($data)) return $out;
     if (isset($data['files']) && is_array($data['files'])) {
         foreach ($data['files'] as $f) {
-            if (is_string($f)) {
-                $items[] = $f;
-            } elseif (is_array($f) && isset($f['name'])) {
-                $items[] = $f['name'];
-            }
+            if (is_string($f)) $out[] = $f;
+            elseif (is_array($f) && isset($f['name'])) $out[] = $f['name'];
         }
-    } elseif (isset($data['items']) && is_array($data['items'])) {
-        $items = $data['items'];
-    } elseif (array_keys($data) === array_keys(array_values($data))) {
-        foreach ($data as $f) {
-            $items[] = is_string($f) ? $f : (isset($f['name']) ? $f['name'] : '');
-        }
-        $items = array_filter($items);
+        return $out;
     }
+    if (isset($data['items']) && is_array($data['items'])) return $data['items'];
+    if (array_keys($data) === array_keys(array_values($data))) {
+        foreach ($data as $f) {
+            $out[] = is_string($f) ? $f : (isset($f['name']) ? $f['name'] : '');
+        }
+        return array_values(array_filter($out));
+    }
+    return $out;
+}
+
+$urls = array(
+    'http://' . $host . '/api/files/' . $type,
+    'http://' . $host . '/api/file/' . $type
+);
+if ($type === 'playlists') {
+    $urls[] = 'http://' . $host . '/api/files/playlist';
+    $urls[] = 'http://' . $host . '/api/file/playlist';
+}
+$ctx = stream_context_create(array('http' => array('timeout' => 5)));
+foreach ($urls as $url) {
+    $raw = @file_get_contents($url, false, $ctx);
+    if ($raw !== false) {
+        $data = json_decode($raw, true);
+        $items = extractNames($data);
+        if (!empty($items)) break;
+        if (is_array($data) && isset($data['error'])) continue;
+    }
+}
+
+if (empty($items)) {
+    $mediaBases = array('/home/fpp/media', '/var/www/media', __DIR__ . '/../media');
+    $subDirs = array('playlists' => array('playlists', 'playlist'), 'sequences' => array('sequences', 'sequence'), 'effects' => array('effects', 'effect'), 'media' => array('music', 'media'));
+    $extMap = array('playlists' => array('.json'), 'sequences' => array('.fseq', '.eseq'), 'effects' => array('.eseq'), 'media' => array('.mp3', '.ogg', '.wav'));
+    $subList = isset($subDirs[$type]) ? $subDirs[$type] : array($type);
+    $exts = isset($extMap[$type]) ? $extMap[$type] : array();
+    foreach ($mediaBases as $base) {
+        foreach ($subList as $sub) {
+            $dir = $base . '/' . $sub;
+            if (!is_dir($dir)) continue;
+            $files = @scandir($dir);
+            if (!$files) continue;
+            foreach ($files as $f) {
+                if ($f === '.' || $f === '..') continue;
+                $path = $dir . '/' . $f;
+                if (is_dir($path)) continue;
+                $ext = strrchr($f, '.');
+                if ($ext && in_array(strtolower($ext), $exts, true)) {
+                    $items[] = basename($f, $ext);
+                }
+            }
+            if (!empty($items)) break 2;
+        }
+    }
+    $items = array_unique($items);
+    sort($items);
 }
 
 echo json_encode(array('items' => array_values($items)));
