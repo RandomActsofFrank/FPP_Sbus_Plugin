@@ -9,7 +9,7 @@ if (ob_get_level()) ob_end_clean();
 fpp_sbus_json_header();
 if (!headers_sent()) header('Cache-Control: no-store');
 
-$pluginDir = __DIR__;
+$pluginDir = fpp_sbus_plugin_dir(__DIR__);
 $action = $_REQUEST['action'] ?? '';
 fpp_sbus_log('actions.php', ['action' => $action]);
 

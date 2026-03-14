@@ -26,7 +26,7 @@ if ! grep -q '"enabled"\s*:\s*1' "$CONFIG" 2>/dev/null; then
 fi
 
 if [ -f "$DAEMON" ]; then
-    python3 "$DAEMON" >> "${PLUGINDIR}/sbus_daemon.log" 2>&1 &
+    nohup python3 "$DAEMON" >> "${PLUGINDIR}/sbus_daemon.log" 2>&1 </dev/null &
     echo $! > "$PIDFILE"
     echo "Daemon restarted"
 else

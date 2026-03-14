@@ -3,9 +3,29 @@
 
 . ${FPPDIR}/scripts/common
 
-# Ensure python3 and pyserial are available
+# Ensure python3 is available
 if ! command -v python3 &> /dev/null; then
     echo "Warning: python3 not found. SBUS plugin requires Python 3."
+fi
+
+# Install pyserial (serial module) if not present
+if command -v python3 &> /dev/null && ! python3 -c "import serial" 2>/dev/null; then
+    echo "Installing pyserial (python3-serial) for SBUS daemon..."
+    if command -v apt-get &> /dev/null; then
+        if [ "$(id -u)" = "0" ]; then
+            apt-get update -qq && apt-get install -y python3-serial 2>/dev/null || true
+        else
+            sudo apt-get update -qq && sudo apt-get install -y python3-serial 2>/dev/null || true
+        fi
+    fi
+    if ! python3 -c "import serial" 2>/dev/null; then
+        pip3 install --user pyserial 2>/dev/null || pip3 install pyserial 2>/dev/null || true
+    fi
+    if ! python3 -c "import serial" 2>/dev/null; then
+        echo "Warning: Could not install pyserial. Install manually: sudo apt-get install python3-serial"
+    else
+        echo "pyserial installed."
+    fi
 fi
 
 # Create default config if missing

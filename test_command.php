@@ -9,7 +9,7 @@ require_once __DIR__ . '/plugin_common.inc';
 fpp_sbus_json_header();
 if (!headers_sent()) header('Cache-Control: no-store');
 
-$pluginDir = __DIR__;
+$pluginDir = fpp_sbus_plugin_dir(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
 $config = [];
 if (file_exists($configFile)) {

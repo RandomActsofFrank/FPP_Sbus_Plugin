@@ -7,6 +7,32 @@
  *   require_once __DIR__ . '/plugin_common.inc';
  */
 
+if (!function_exists('fpp_sbus_plugin_dir')) {
+    /**
+     * Resolve plugin directory so PHP and daemon use the same path (pid/heartbeat/config).
+     * When FPP runs postStart, the daemon uses FPPDIR/plugins/FPP_Sbus_Plugin. The web server
+     * may serve from a different __DIR__. Prefer known FPP paths so we find daemon-written files.
+     * @param string $currentDir Usually __DIR__ of the including script
+     * @return string Plugin root path (with trailing slash stripped)
+     */
+    function fpp_sbus_plugin_dir($currentDir) {
+        $candidates = array(
+            '/home/fpp/media/plugins/FPP_Sbus_Plugin',
+            '/home/fpp/plugins/FPP_Sbus_Plugin',
+            '/opt/fpp/media/plugins/FPP_Sbus_Plugin',
+            $currentDir,
+        );
+        foreach ($candidates as $dir) {
+            $dir = rtrim(str_replace('\\', '/', $dir), '/');
+            if ($dir === '') continue;
+            if (file_exists($dir . '/sbus_config.json') || file_exists($dir . '/scripts/sbus_fpp_daemon.py')) {
+                return $dir;
+            }
+        }
+        return $currentDir;
+    }
+}
+
 if (!function_exists('fpp_sbus_log')) {
     /**
      * Append a line to fpp_sbus.log in the FPP log folder (or plugin dir if not writable).

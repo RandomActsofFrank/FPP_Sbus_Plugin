@@ -5,7 +5,9 @@
  */
 
 $plugin = 'FPP_Sbus_Plugin';
-$pluginDir = __DIR__;
+if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
+require_once __DIR__ . '/plugin_common.inc';
+$pluginDir = fpp_sbus_plugin_dir(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
 $defaultConfig = array(
     'enabled' => 0,
@@ -62,7 +64,7 @@ $rulesJson = json_encode($config['rules'], JSON_PRETTY_PRINT);
 $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2');
 
 // Load FPP lists server-side so dropdowns have data on page load (avoids AJAX response parsing issues).
-$pluginDirForLists = __DIR__;
+$pluginDirForLists = $pluginDir;
 require_once __DIR__ . '/fpp_lists_functions.inc.php';
 $fppListsData = array(
     'playlists' => fpp_sbus_get_list($configFile, 'playlists', $pluginDirForLists),
@@ -77,20 +79,6 @@ $fppListsData = array(
 
 <p>Configure SBUS reception from your FrSky RC receiver and map servo channel values to FPP commands (effects, playlists, etc.).</p>
 <p><strong>Note:</strong> SBUS uses inverted serial logic. You need an <a href="https://electronicspost.com/explain-the-logic-not-gate-or-inverter-and-its-operation-with-truth-table/" target="_blank">inverter circuit</a> (e.g., transistor + resistors) between the receiver and Raspberry Pi unless your hardware inverts the signal.</p>
-
-<div class="panel panel-info" style="margin-bottom:16px;">
-<div class="panel-heading"><strong>How SBUS reading works (no SBUS code in PHP)</strong></div>
-<div class="panel-body small">
-<p>A <strong>Python daemon</strong> does all SBUS reading; this config page only displays the result.</p>
-<ol>
-<li><strong>Daemon:</strong> <code>scripts/sbus_fpp_daemon.py</code> runs in the background (started when the FPP daemon, fppd, starts—if the plugin is enabled). It opens the serial port (e.g. /dev/ttyAMA0) at 100000 baud, 8E2.</li>
-<li><strong>Serial → SBUS:</strong> The daemon reads raw bytes, finds 25-byte SBUS packets (header 0x0F, footer 0x00), and decodes the 16 channels (11 bits each) plus ch17/ch18, failsafe, and frame_lost. The protocol is implemented in <code>parse_sbus_packet()</code> in that script.</li>
-<li><strong>Status file:</strong> After each valid packet, the daemon writes <code>sbus_status.json</code> in the plugin directory with last_packet time, channels[1–16], and flags.</li>
-<li><strong>This page:</strong> Click <strong>Refresh status</strong> to fetch receiver and channel data from <code>sbus_status.php</code> (reads <code>sbus_status.json</code>).</li>
-</ol>
-<p>So the only code that reads SBUS from the receiver is <strong>scripts/sbus_fpp_daemon.py</strong>. Rule triggering (FPP API calls) also runs in that daemon.</p>
-</div>
-</div>
 
 <h3>Receiver Status</h3>
 <div id="receiverStatus" class="panel panel-default">
