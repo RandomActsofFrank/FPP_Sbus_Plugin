@@ -36,6 +36,13 @@ $items = array();
 function extractNames($data, $type = '') {
     $out = array();
     if (!is_array($data)) return $out;
+    if (array_keys($data) === range(0, count($data) - 1) && !empty($data)) {
+        foreach ($data as $f) {
+            if (is_string($f)) $out[] = $f;
+            elseif (is_array($f) && (isset($f['name']) || isset($f['filename']))) $out[] = $f['name'] ?? $f['filename'];
+        }
+        return array_values(array_filter($out));
+    }
     if (isset($data['items']) && is_array($data['items'])) {
         foreach ($data['items'] as $f) {
             if (is_string($f)) $out[] = $f;

@@ -163,7 +163,20 @@ var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences
 var fppLists = { playlists: [], sequences: [], effects: [], media: [] };
 var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
 
-/** Parse the last JSON object in response (plugin output is usually last when FPP wraps page in HTML). */
+/** Parse JSON from plugin response. Prefer object containing "items" (our list response) when FPP wraps page in HTML. */
+function parseListResponse(text) {
+    var s = typeof text === 'string' ? text : '';
+    var idx = s.indexOf('{"items":');
+    if (idx >= 0) {
+        try { return JSON.parse(s.substring(idx)); } catch (e) {}
+    }
+    var i = s.lastIndexOf('{');
+    if (i >= 0) {
+        try { return JSON.parse(s.substring(i)); } catch (e) {}
+    }
+    return {};
+}
+/** Parse the last JSON object (for status, test, etc.). */
 function parseLastJson(text) {
     var i = (typeof text === 'string' ? text : '').lastIndexOf('{');
     if (i < 0) return {};
@@ -261,7 +274,7 @@ function appendRuleRow(i) {
                 fetch(fppListsBase + '&type=' + encodeURIComponent(fppType))
                 .then(function(res) { return res.text(); })
                 .then(function(text) {
-                    var data = parseLastJson(text);
+                    var data = parseListResponse(text);
                     fppLists[fppType] = normalizeListItems(data.items || []);
                     fillItemDropdown(itemSel, t, '');
                 })
@@ -323,7 +336,7 @@ function loadFppLists(done) {
         fetch(fppListsBase + '&type=' + encodeURIComponent(t))
             .then(function(r) { return r.text(); })
             .then(function(text) {
-                var data = parseLastJson(text);
+                var data = parseListResponse(text);
                 if (data.error) errors.push(data.error);
                 fppLists[t] = normalizeListItems(data.items || []);
                 check();
