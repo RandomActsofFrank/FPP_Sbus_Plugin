@@ -30,7 +30,7 @@ if ($cmd === '') {
     exit;
 }
 
-// FPP API requires spaces in path segments as %20 (use rawurlencode; do not use urlencode/+).
+// FPP API accepts + for spaces in path segments (urlencode gives +).
 $url = null;
 $idx = strpos($cmd, '/');
 if ($idx !== false) {
@@ -38,23 +38,23 @@ if ($idx !== false) {
     $name = trim(substr($cmd, $idx + 1));
     $base = 'http://' . $host . '/api/';
     if ($type === 'Start Playlist' && $name !== '') {
-        $url = $base . 'playlist/' . rawurlencode($name) . '/start';
+        $url = $base . 'playlist/' . urlencode($name) . '/start';
     } elseif ($type === 'Start Sequence' && $name !== '') {
         // Sequence start requires the .fseq extension in the path segment.
         $seqName = $name;
         if (strtolower(substr($seqName, -5)) !== '.fseq') {
             $seqName .= '.fseq';
         }
-        $url = $base . 'sequence/' . rawurlencode($seqName) . '/start';
+        $url = $base . 'sequence/' . urlencode($seqName) . '/start';
     } elseif ($type === 'Start Effect' && $name !== '') {
-        $url = $base . 'effect/' . rawurlencode($name) . '/start';
+        $url = $base . 'effect/' . urlencode($name) . '/start';
     } elseif ($type === 'Start Media' && $name !== '') {
         // Media can be started via the same playlist start endpoint by passing the media filename.
-        $url = $base . 'playlist/' . rawurlencode($name) . '/start';
+        $url = $base . 'playlist/' . urlencode($name) . '/start';
     }
 }
 if ($url === null) {
-    $url = 'http://' . $host . '/api/command/' . rawurlencode($cmd);
+    $url = 'http://' . $host . '/api/command/' . urlencode($cmd);
 }
 
 fpp_sbus_log('test_command.php', ['command' => $cmd, 'url' => $url]);

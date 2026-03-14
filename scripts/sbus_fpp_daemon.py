@@ -91,7 +91,7 @@ def write_status(status_file, parsed):
 
 def _fpp_start_url(host, command):
     """Build FPP REST URL for Start Playlist/Sequence/Effect/Media; else None (use /api/command/).
-    FPP API requires spaces as %20 in path (use quote(..., safe=''); do not use quote_plus)."""
+    FPP API accepts + for spaces in path (quote_plus)."""
     command = urllib.parse.unquote(command)
     if '/' not in command:
         return None
@@ -102,20 +102,20 @@ def _fpp_start_url(host, command):
         return None
     base = f"http://{host}/api/"
     if ctype == 'Start Playlist':
-        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
+        encoded = urllib.parse.quote_plus(name)
         return f"{base}playlist/{encoded}/start"
     if ctype == 'Start Sequence':
         seq_name = name
         if not seq_name.lower().endswith('.fseq'):
             seq_name += '.fseq'
-        encoded = urllib.parse.quote(seq_name, safe='')  # %20 for spaces, not +
+        encoded = urllib.parse.quote_plus(seq_name)
         return f"{base}sequence/{encoded}/start"
     if ctype == 'Start Effect':
-        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
+        encoded = urllib.parse.quote_plus(name)
         return f"{base}effect/{encoded}/start"
     if ctype == 'Start Media':
         # Media can be started via the same playlist start endpoint by passing the media filename.
-        encoded = urllib.parse.quote(name, safe='')  # %20 for spaces, not +
+        encoded = urllib.parse.quote_plus(name)
         return f"{base}playlist/{encoded}/start"
     return None
 
@@ -124,8 +124,8 @@ def call_fpp_api(host, command):
     """Send FPP API command via HTTP. Uses REST endpoints for Start Playlist/Sequence/Effect/Media."""
     url = _fpp_start_url(host, command)
     if url is None:
-        # quote(..., safe='/') gives %20 for spaces (not +)
-        url = f"http://{host}/api/command/{urllib.parse.quote(command, safe='/')}"
+        # + for spaces, keep / unencoded for command path
+        url = f"http://{host}/api/command/{urllib.parse.quote(command.replace(' ', '+'), safe='/')}"
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=5) as resp:
