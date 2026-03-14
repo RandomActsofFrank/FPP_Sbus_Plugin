@@ -1,7 +1,9 @@
 #!/bin/sh
-# Start SBUS daemon when FPP starts
+# Start SBUS daemon when FPP starts (or run this script manually / from cron @reboot)
+# Plugin dir is derived from this script's path so it works even when FPPDIR is not set.
 
-PLUGINDIR="${FPPDIR}/plugins/FPP_Sbus_Plugin"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGINDIR="$(dirname "$SCRIPT_DIR")"
 DAEMON="${PLUGINDIR}/scripts/sbus_fpp_daemon.py"
 PIDFILE="${PLUGINDIR}/sbus_daemon.pid"
 CONFIG="${PLUGINDIR}/sbus_config.json"

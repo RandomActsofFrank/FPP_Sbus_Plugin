@@ -20,7 +20,9 @@ Allows FPP (Falcon Player) to receive FrSky SBUS signals from RC transmitters an
 | **`sbus_status.php`** | Read-only: reads `sbus_status.json` and returns it as JSON for the config page. No serial, no SBUS parsing. |
 | **Config page (content.php)** | Displays receiver status and channel table by fetching the JSON from `sbus_status.php`. No SBUS code. |
 
-So the **only** code that reads SBUS from the receiver is **`scripts/sbus_fpp_daemon.py`** (see `parse_sbus_packet()` and the main loop). The daemon is started by FPP’s `scripts/postStart.sh` when FPP starts and the plugin is enabled.
+So the **only** code that reads SBUS from the receiver is **`scripts/sbus_fpp_daemon.py`** (see `parse_sbus_packet()` and the main loop).
+
+**Starting the daemon:** The plugin install adds a systemd unit `fpp-sbus-plugin.service` that runs after fppd at boot, so the SBUS daemon starts when the system boots (if the plugin is enabled in config). If you restart only fppd and the daemon doesn’t come back, use **Restart Daemon** on the plugin config page or run: `sudo systemctl start fpp-sbus-plugin.service`.
 
 ## Requirements
 

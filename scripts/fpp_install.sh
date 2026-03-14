@@ -35,9 +35,42 @@ if [ ! -f "$CONFIG" ]; then
     echo '{"enabled":0,"serialPort":"/dev/ttyAMA0","baudRate":100000,"fppHost":"127.0.0.1","rules":[]}' > "$CONFIG"
 fi
 
-# Make scripts executable
+# Make scripts executable (including postStart so FPP can run it when fppd starts)
 chmod +x "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" 2>/dev/null || true
 chmod +x "${PLUGINDIR}/scripts/stop_daemon.sh" 2>/dev/null || true
 chmod +x "${PLUGINDIR}/scripts/restart_daemon.sh" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/postStart.sh" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/postStop.sh" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/preStart.sh" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/preStop.sh" 2>/dev/null || true
+
+# Install systemd unit so SBUS daemon starts after fppd on boot (and after fppd restart)
+# FPP may not run postStart on all versions; this ensures the daemon starts.
+FPP_SBUS_SERVICE_NAME="fpp-sbus-plugin.service"
+FPP_SBUS_SERVICE_FILE="/etc/systemd/system/${FPP_SBUS_SERVICE_NAME}"
+if [ -n "$FPPDIR" ] && [ -d "$(dirname "$FPP_SBUS_SERVICE_FILE")" ]; then
+    cat << EOF > "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp"
+[Unit]
+Description=Start FPP SBUS plugin daemon (after fppd)
+After=network.target fppd.service
+# Start after fppd so config/plugin dir is ready
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+User=fpp
+ExecStart=${PLUGINDIR}/scripts/postStart.sh
+WorkingDirectory=${PLUGINDIR}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    if [ "$(id -u)" = "0" ]; then
+        mv "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp" "$FPP_SBUS_SERVICE_FILE" 2>/dev/null && systemctl daemon-reload && systemctl enable "$FPP_SBUS_SERVICE_NAME" 2>/dev/null && echo "Systemd unit ${FPP_SBUS_SERVICE_NAME} installed and enabled." || true
+    else
+        sudo mv "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp" "$FPP_SBUS_SERVICE_FILE" 2>/dev/null && sudo systemctl daemon-reload && sudo systemctl enable "$FPP_SBUS_SERVICE_NAME" 2>/dev/null && echo "Systemd unit ${FPP_SBUS_SERVICE_NAME} installed and enabled." || true
+    fi
+    rm -f "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp" 2>/dev/null
+fi
 
 echo "FrSky SBUS plugin installed. Configure via Plugin menu -> SBUS - Configuration (plugin dir: FPP_Sbus_Plugin)"
