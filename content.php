@@ -77,6 +77,12 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
             <tbody><tr><td>Value</td><td id="ch1">-</td><td id="ch2">-</td><td id="ch3">-</td><td id="ch4">-</td><td id="ch5">-</td><td id="ch6">-</td><td id="ch7">-</td><td id="ch8">-</td><td id="ch9">-</td><td id="ch10">-</td><td id="ch11">-</td><td id="ch12">-</td><td id="ch13">-</td><td id="ch14">-</td><td id="ch15">-</td><td id="ch16">-</td></tr></tbody>
         </table>
         <p id="receiverFlags" class="text-muted small" style="margin-top:8px;"></p>
+        <div style="margin-top:12px;">
+            <button type="button" class="btn btn-primary btn-sm" id="btnRestartDaemon">Restart Daemon</button>
+            <button type="button" class="btn btn-warning btn-sm" id="btnStopDaemon">Stop Daemon</button>
+            <button type="button" class="btn btn-danger btn-sm" id="btnUninstall">Clean Up / Uninstall</button>
+            <span id="daemonActionResult" class="text-muted small" style="margin-left:10px;"></span>
+        </div>
     </div>
 </div>
 
@@ -205,6 +211,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateReceiverStatus();
     setInterval(updateReceiverStatus, 1500);
+
+    function doDaemonAction(action, btnId) {
+        var btn = document.getElementById(btnId);
+        var resultEl = document.getElementById('daemonActionResult');
+        if (btn) btn.disabled = true;
+        resultEl.textContent = 'Running…';
+        var url = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=actions.php&action=' + encodeURIComponent(action);
+        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            resultEl.textContent = data.message || (data.ok ? 'Done' : 'Failed');
+            if (data.ok) setTimeout(updateReceiverStatus, 500);
+        }).catch(function() {
+            resultEl.textContent = 'Request failed';
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+            setTimeout(function() { resultEl.textContent = ''; }, 5000);
+        });
+    }
+    document.getElementById('btnRestartDaemon').addEventListener('click', function() { doDaemonAction('restart', 'btnRestartDaemon'); });
+    document.getElementById('btnStopDaemon').addEventListener('click', function() { doDaemonAction('stop', 'btnStopDaemon'); });
+    document.getElementById('btnUninstall').addEventListener('click', function() {
+        if (confirm('Stop daemon and clear plugin state? Use FPP Plugin Manager to fully remove the plugin.')) {
+            doDaemonAction('uninstall', 'btnUninstall');
+        }
+    });
 
 
     document.querySelector('form').addEventListener('submit', function() {

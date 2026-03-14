@@ -15,7 +15,9 @@ if [ ! -f "$CONFIG" ]; then
     echo '{"enabled":0,"serialPort":"/dev/ttyAMA0","baudRate":100000,"fppHost":"127.0.0.1","rules":[]}' > "$CONFIG"
 fi
 
-# Make daemon executable
+# Make scripts executable
 chmod +x "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/stop_daemon.sh" 2>/dev/null || true
+chmod +x "${PLUGINDIR}/scripts/restart_daemon.sh" 2>/dev/null || true
 
 echo "FrSky SBUS plugin installed. Configure via Plugin menu -> SBUS - Configuration (plugin dir: FPP_Sbus_Plugin)"
