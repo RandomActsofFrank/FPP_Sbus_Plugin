@@ -3,12 +3,14 @@
  * FrSky SBUS Plugin - Daemon control actions
  * Handles Stop, Restart, Uninstall (cleanup) from config page.
  */
+require_once __DIR__ . '/plugin_common.inc';
 if (ob_get_level()) ob_end_clean();
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
+fpp_sbus_json_header();
+if (!headers_sent()) header('Cache-Control: no-store');
 
 $pluginDir = dirname(__DIR__);
 $action = $_REQUEST['action'] ?? '';
+fpp_sbus_log('actions.php', ['action' => $action]);
 
 $allowed = ['stop', 'restart', 'uninstall'];
 if (!in_array($action, $allowed)) {
@@ -37,6 +39,7 @@ if ($action === 'stop' || $action === 'uninstall') {
     }
 }
 
+fpp_sbus_log('actions.php result', ['action' => $action, 'code' => $code]);
 echo json_encode([
     'ok' => ($code === 0 || $code === -1),
     'message' => implode("\n", $output),

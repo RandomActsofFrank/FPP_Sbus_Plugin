@@ -4,7 +4,8 @@
  * Returns JSON: { "items": ["name1", "name2", ...] } or { "error": "message" }
  * Tries FPP REST API first, then falls back to listing local media directories.
  */
-header('Content-Type: application/json');
+require_once __DIR__ . '/plugin_common.inc';
+fpp_sbus_json_header();
 
 $pluginDir = dirname(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
@@ -12,9 +13,11 @@ $type = isset($_GET['type']) ? trim($_GET['type']) : '';
 
 $allowed = array('playlists', 'sequences', 'effects', 'media');
 if (!in_array($type, $allowed, true)) {
+    fpp_sbus_log('fpp_lists.php invalid type', ['type' => $type]);
     echo json_encode(array('error' => 'Invalid type. Use playlists, sequences, effects, or media.'));
     exit;
 }
+fpp_sbus_log('fpp_lists.php', ['type' => $type]);
 
 $config = array();
 if (file_exists($configFile)) {
@@ -98,4 +101,5 @@ if (empty($items)) {
     sort($items);
 }
 
+fpp_sbus_log('fpp_lists.php result', ['type' => $type, 'count' => count($items)]);
 echo json_encode(array('items' => array_values($items)));

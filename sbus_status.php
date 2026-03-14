@@ -3,7 +3,9 @@
  * FrSky SBUS Plugin - Status JSON (receiver/daemon state)
  * Used by config page only. Named to avoid conflicting with FPP core api/file endpoints.
  */
-header('Content-Type: application/json');
+require_once __DIR__ . '/plugin_common.inc';
+fpp_sbus_json_header();
+fpp_sbus_log('sbus_status.php requested');
 
 $pluginDir = dirname(__DIR__);
 $configFile = $pluginDir . '/sbus_config.json';
@@ -18,6 +20,7 @@ if (file_exists($pidFile)) {
     $pid = trim(file_get_contents($pidFile));
     $running = $pid && @file_exists("/proc/$pid");
 }
+fpp_sbus_log('status', ['running' => $running, 'enabled' => !empty($config['enabled'])]);
 
 $out = [
     'enabled' => !empty($config['enabled']),
