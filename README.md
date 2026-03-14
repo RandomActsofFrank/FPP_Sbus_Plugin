@@ -17,17 +17,28 @@ Allows FPP (Falcon Player) to receive FrSky SBUS signals from RC transmitters an
 
 ## Wiring & Hardware
 
-### SBUS Signal Inversion
+### Use the SBUS port, not S.Port (Smart Port)
 
-SBUS uses **inverted** UART logic (idle high). Standard UART is idle low. You need an inverter between the FrSky receiver SBUS output and the Raspberry Pi RX pin.
+This plugin needs **RC channel data** (the 16 servo values). On FrSky receivers:
 
-**Simple inverter circuit** (transistor + 2 resistors):
-- 10kΩ from receiver SBUS → transistor base
-- Transistor collector → Pi RX (GPIO15 / ttyAMA0)
-- 10kΩ pull-up from Pi RX to 3.3V
-- Emitter to GND
+- **SBUS** – Carries the 16 channels. Use the **SBUS** output on the receiver for this plugin.
+- **S.Port (Smart Port)** – Cannot be used for this plugin. Smart Port is a **sensor/telemetry protocol**: the receiver polls up to 28 physical sensor IDs (e.g. altimeter, voltage, GPS, RPM, RSSI), and devices respond with telemetry values. It does **not** carry the 16 RC channel values. See the [FrSky Smart Port protocol (arduino-frskysp)](https://github.com/jcheger/arduino-frskysp) docs and [sensor ID list](https://www.ordinoscope.net/static/arduino-frskysp/docs/html/) — only telemetry logical IDs (altitude, VFAS, current, cells, temperature, RPM, GPS, etc.) are defined; there are no “channel 1–16” IDs. So S.Port cannot replace SBUS for FPP. Both SBUS and S.Port outputs on FrSky are **inverted** at the connector (S.Port is inverted serial at 57600 baud), so using S.Port would not remove the need for inversion anyway.
 
-References: [Carbon225/raspberry-sbus](https://github.com/Carbon225/raspberry-sbus), [PiSBUS](https://github.com/1arthur1/PiSBUS).
+### SBUS signal inversion and how to avoid an external inverter
+
+SBUS uses **inverted** UART logic (idle high). Standard Raspberry Pi UART expects non-inverted (idle low), so you need either an inverter between the receiver and the Pi or an **uninverted** SBUS signal.
+
+**Option A – External inverter circuit** (works with any receiver, including X8R)
+
+- Simple transistor + resistors between the receiver **SBUS** pin and the Pi RX pin.
+- 10kΩ from receiver SBUS → transistor base; collector → Pi RX; 10kΩ pull-up from Pi RX to 3.3V; emitter to GND.
+- References: [Carbon225/raspberry-sbus](https://github.com/Carbon225/raspberry-sbus), [PiSBUS](https://github.com/1arthur1/PiSBUS).
+
+**Option B – Uninverted SBUS from the receiver (no inverter needed)**
+
+- On some FrSky receivers you can get **uninverted** SBUS by soldering to a pad or pin on the PCB (before the inverter stage). Then connect that wire directly to the Pi RX pin—no inverter circuit needed.
+- **X4R-SB, XSR, R-XSR**: Uninverted SBUS is available at a documented solder point (e.g. pin “A” / middle of a 3-pin group). See [Oscar Liang: Uninverted SBUS and Smart Port on FrSky receivers](https://oscarliang.com/uninverted-sbus-smart-port-frsky-receivers/).
+- **X8R**: The board uses two stacked PCBs and the inverter is hard to access, so the solder-tap method is not practical. For X8R, use **Option A** (external inverter) with the SBUS port.
 
 ### Raspberry Pi UART Setup
 

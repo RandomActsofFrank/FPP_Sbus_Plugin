@@ -72,6 +72,23 @@ def parse_sbus_packet(data):
     }
 
 
+def write_status(status_file, parsed):
+    """Write receiver status and channel data to JSON file for UI display."""
+    try:
+        data = {
+            'last_packet': time.time(),
+            'channels': parsed['channels'],
+            'ch17': parsed['ch17'],
+            'ch18': parsed['ch18'],
+            'failsafe': parsed['failsafe'],
+            'frame_lost': parsed['frame_lost'],
+        }
+        with open(status_file, 'w') as f:
+            json.dump(data, f, indent=0)
+    except Exception as e:
+        print(f"Status write error: {e}", file=sys.stderr)
+
+
 def call_fpp_api(host, command):
     """Send FPP API command via HTTP."""
     url = f"http://{host}/api/command/{command}"
@@ -104,9 +121,8 @@ def main():
     fpp_host = config.get('fppHost', '127.0.0.1')
     rules = config.get('rules', [])
 
-    if not rules:
-        print("No channel rules configured.")
-        sys.exit(0)
+    status_file = os.path.join(plugin_dir, 'sbus_status.json')
+    CONNECTED_TIMEOUT = 0.5  # seconds without packet = disconnected
 
     # Track last triggered rule to avoid spamming
     last_triggered = {}  # rule_idx -> last trigger time
@@ -152,25 +168,26 @@ def main():
                     packet = bytes(buf[:SBUS_PACKET_SIZE])
                     buf = buf[SBUS_PACKET_SIZE:]
                     parsed = parse_sbus_packet(packet)
-                    if parsed and not parsed['failsafe']:
-                        now = time.time()
-                        for ri, rule in enumerate(rules):
-                            ch = int(rule.get('channel', 1)) - 1
-                            if ch < 0 or ch >= SBUS_NUM_CHANNELS:
-                                continue
-                            val = parsed['channels'][ch]
-                            minv = int(rule.get('minVal', SBUS_MIN))
-                            maxv = int(rule.get('maxVal', SBUS_MAX))
-                            cmd = rule.get('command', '').strip()
-                            if not cmd:
-                                continue
-                            if minv <= val <= maxv:
-                                key = ri
-                                if key not in last_triggered or (now - last_triggered[key]) >= trigger_cooldown:
-                                    last_triggered[key] = now
-                                    # URL-encode command (spaces -> %20, slashes preserved)
-                                    cmd_encoded = urllib.parse.quote(cmd, safe='/')
-                                    call_fpp_api(fpp_host, cmd_encoded)
+                    if parsed:
+                        write_status(status_file, parsed)
+                        if not parsed['failsafe'] and rules:
+                            now = time.time()
+                            for ri, rule in enumerate(rules):
+                                ch = int(rule.get('channel', 1)) - 1
+                                if ch < 0 or ch >= SBUS_NUM_CHANNELS:
+                                    continue
+                                val = parsed['channels'][ch]
+                                minv = int(rule.get('minVal', SBUS_MIN))
+                                maxv = int(rule.get('maxVal', SBUS_MAX))
+                                cmd = rule.get('command', '').strip()
+                                if not cmd:
+                                    continue
+                                if minv <= val <= maxv:
+                                    key = ri
+                                    if key not in last_triggered or (now - last_triggered[key]) >= trigger_cooldown:
+                                        last_triggered[key] = now
+                                        cmd_encoded = urllib.parse.quote(cmd, safe='/')
+                                        call_fpp_api(fpp_host, cmd_encoded)
             else:
                 time.sleep(0.001)
         except serial.SerialException as e:

@@ -5,9 +5,10 @@
 
 <h3>Setup</h3>
 <ol>
-<li>Connect your FrSky SBUS receiver to the Raspberry Pi via an <strong>inverter circuit</strong> (SBUS uses inverted serial logic).</li>
-<li>Enable the plugin and set the correct serial port (e.g. /dev/ttyAMA0 for built-in UART, /dev/ttyUSB0 for USB-serial).</li>
-<li>Add rules: choose an SBUS channel (1–16), set min/max value range (typically 172–1811 for FrSky), and the FPP command to run.</li>
+<li>Use the receiver’s <strong>SBUS</strong> output (not S.Port). S.Port is a sensor-polling telemetry protocol (receiver polls sensors for altitude, voltage, GPS, etc.); it does not carry the 16 RC channel values. See <a href="https://github.com/jcheger/arduino-frskysp" target="_blank">arduino-frskysp</a> for the Smart Port protocol and sensor IDs. Both SBUS and S.Port are inverted on FrSky.</li>
+<li>Connect SBUS to the Pi: either via an <strong>inverter circuit</strong>, or by using <strong>uninverted SBUS</strong> from a receiver that supports it (e.g. X4R-SB, XSR—see <a href="https://oscarliang.com/uninverted-sbus-smart-port-frsky-receivers/" target="_blank">Oscar Liang’s guide</a>). For an <strong>X8R</strong>, the uninverted tap is not practical; use an external inverter with the SBUS port.</li>
+<li>Enable the plugin and set the correct serial port (e.g. /dev/ttyAMA0 or /dev/ttyUSB0).</li>
+<li>Add rules: choose an SBUS channel (1–16), min/max value range (typically 172–1811), and the FPP command to run.</li>
 </ol>
 
 <h3>FPP Commands</h3>
