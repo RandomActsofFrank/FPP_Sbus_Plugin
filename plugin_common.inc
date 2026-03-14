@@ -20,6 +20,8 @@ if (!function_exists('fpp_sbus_plugin_dir')) {
             '/home/fpp/media/plugins/FPP_Sbus_Plugin',
             '/home/fpp/plugins/FPP_Sbus_Plugin',
             '/opt/fpp/media/plugins/FPP_Sbus_Plugin',
+            '/opt/fpp/plugins/FPP_Sbus_Plugin',
+            '/var/www/html/plugins/FPP_Sbus_Plugin',
             $currentDir,
         );
         foreach ($candidates as $dir) {

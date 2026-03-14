@@ -1,5 +1,6 @@
 #!/bin/sh
 # Stop and start SBUS daemon (callable from config page)
+# If systemd service fpp-sbus-plugin.service is installed, use it; otherwise start daemon manually.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGINDIR="$(dirname "$SCRIPT_DIR")"
@@ -7,7 +8,18 @@ DAEMON="${PLUGINDIR}/scripts/sbus_fpp_daemon.py"
 PIDFILE="${PLUGINDIR}/sbus_daemon.pid"
 CONFIG="${PLUGINDIR}/sbus_config.json"
 
-# Stop if running
+# If systemd manages the daemon, restart via systemd (avoids double-start)
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-enabled fpp-sbus-plugin.service >/dev/null 2>&1 || [ -f /etc/systemd/system/fpp-sbus-plugin.service ]; then
+        if [ "$(id -u)" = "0" ]; then
+            systemctl restart fpp-sbus-plugin.service 2>/dev/null && echo "Daemon restarted (systemd)" && exit 0
+        else
+            sudo systemctl restart fpp-sbus-plugin.service 2>/dev/null && echo "Daemon restarted (systemd)" && exit 0
+        fi
+    fi
+fi
+
+# Stop if running (manual or legacy)
 if [ -f "$PIDFILE" ]; then
     PID=$(cat "$PIDFILE" 2>/dev/null)
     [ -n "$PID" ] && kill "$PID" 2>/dev/null

@@ -3,8 +3,13 @@
  * FrSky SBUS Plugin - Status Page (server-side only, no JavaScript)
  */
 if (!defined('FPP_SBUS_PLUGIN_ROOT')) define('FPP_SBUS_PLUGIN_ROOT', __DIR__);
-require_once __DIR__ . '/plugin_common.inc';
-$pluginDir = fpp_sbus_plugin_dir(__DIR__);
+$pluginDir = __DIR__;
+if (file_exists(__DIR__ . '/plugin_common.inc')) {
+    require_once __DIR__ . '/plugin_common.inc';
+    $pluginDir = fpp_sbus_plugin_dir(__DIR__);
+} elseif (function_exists('fpp_sbus_plugin_dir')) {
+    $pluginDir = fpp_sbus_plugin_dir(__DIR__);
+}
 $configFile = $pluginDir . '/sbus_config.json';
 $pidFile = $pluginDir . '/sbus_daemon.pid';
 $logFile = $pluginDir . '/sbus_daemon.log';

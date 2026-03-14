@@ -1,9 +1,21 @@
 #!/bin/sh
 # Stop SBUS daemon (callable from config page)
+# If systemd service is running, stop it first so it does not restart.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGINDIR="$(dirname "$SCRIPT_DIR")"
 PIDFILE="${PLUGINDIR}/sbus_daemon.pid"
+
+if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/fpp-sbus-plugin.service ]; then
+    if [ "$(id -u)" = "0" ]; then
+        systemctl stop fpp-sbus-plugin.service 2>/dev/null
+    else
+        sudo systemctl stop fpp-sbus-plugin.service 2>/dev/null
+    fi
+    rm -f "$PIDFILE"
+    echo "Daemon stopped"
+    exit 0
+fi
 
 if [ -f "$PIDFILE" ]; then
     PID=$(cat "$PIDFILE" 2>/dev/null)

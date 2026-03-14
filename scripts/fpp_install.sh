@@ -44,23 +44,24 @@ chmod +x "${PLUGINDIR}/scripts/postStop.sh" 2>/dev/null || true
 chmod +x "${PLUGINDIR}/scripts/preStart.sh" 2>/dev/null || true
 chmod +x "${PLUGINDIR}/scripts/preStop.sh" 2>/dev/null || true
 
-# Install systemd unit so SBUS daemon starts after fppd on boot (and after fppd restart)
-# FPP may not run postStart on all versions; this ensures the daemon starts.
+# Install systemd unit: run SBUS daemon as a service so it starts at boot (after fppd).
+# Runs the Python daemon directly; it exits if plugin is disabled in config.
 FPP_SBUS_SERVICE_NAME="fpp-sbus-plugin.service"
 FPP_SBUS_SERVICE_FILE="/etc/systemd/system/${FPP_SBUS_SERVICE_NAME}"
-if [ -n "$FPPDIR" ] && [ -d "$(dirname "$FPP_SBUS_SERVICE_FILE")" ]; then
+if [ -n "$FPPDIR" ] && [ -d "$(dirname "$FPP_SBUS_SERVICE_FILE")" ] && [ -f "${PLUGINDIR}/scripts/sbus_fpp_daemon.py" ]; then
+    PYTHON3="$(command -v python3 2>/dev/null || echo '/usr/bin/python3')"
     cat << EOF > "/tmp/${FPP_SBUS_SERVICE_NAME}.tmp"
 [Unit]
-Description=Start FPP SBUS plugin daemon (after fppd)
+Description=FPP SBUS plugin daemon
 After=network.target fppd.service
-# Start after fppd so config/plugin dir is ready
 
 [Service]
-Type=oneshot
-RemainAfterExit=no
+Type=simple
 User=fpp
-ExecStart=${PLUGINDIR}/scripts/postStart.sh
 WorkingDirectory=${PLUGINDIR}
+ExecStart=${PYTHON3} ${PLUGINDIR}/scripts/sbus_fpp_daemon.py
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
