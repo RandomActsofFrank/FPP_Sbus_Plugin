@@ -9,7 +9,7 @@ require_once __DIR__ . '/plugin_common.inc';
 require_once __DIR__ . '/fpp_lists_functions.inc.php';
 fpp_sbus_json_header();
 
-$pluginDir = dirname(__DIR__);
+$pluginDir = __DIR__;
 $configFile = $pluginDir . '/sbus_config.json';
 $type = trim((string)($_GET['type'] ?? ''));
 

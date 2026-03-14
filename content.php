@@ -5,7 +5,7 @@
  */
 
 $plugin = 'FPP_Sbus_Plugin';
-$pluginDir = dirname(__DIR__);
+$pluginDir = __DIR__;
 $configFile = $pluginDir . '/sbus_config.json';
 $defaultConfig = array(
     'enabled' => 0,
@@ -62,7 +62,7 @@ $rulesJson = json_encode($config['rules'], JSON_PRETTY_PRINT);
 $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2');
 
 // Load FPP lists server-side so dropdowns have data on page load (avoids AJAX response parsing issues).
-$pluginDirForLists = dirname(__DIR__);
+$pluginDirForLists = __DIR__;
 require_once __DIR__ . '/fpp_lists_functions.inc.php';
 $fppListsData = array(
     'playlists' => fpp_sbus_get_list($configFile, 'playlists', $pluginDirForLists),

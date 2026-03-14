@@ -9,7 +9,7 @@ if (ob_get_level()) ob_end_clean();
 fpp_sbus_json_header();
 if (!headers_sent()) header('Cache-Control: no-store');
 
-$pluginDir = dirname(__DIR__);
+$pluginDir = __DIR__;
 $action = $_REQUEST['action'] ?? '';
 fpp_sbus_log('actions.php', ['action' => $action]);
 
@@ -37,6 +37,8 @@ if ($action === 'stop' || $action === 'uninstall') {
 } elseif ($action === 'restart') {
     if (is_readable($restartScript)) {
         exec('sh ' . escapeshellarg($restartScript) . ' 2>&1', $output, $code);
+    } else {
+        fpp_sbus_log('actions.php restart script not found', ['path' => $restartScript]);
     }
 }
 

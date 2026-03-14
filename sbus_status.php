@@ -8,7 +8,7 @@ require_once __DIR__ . '/plugin_common.inc';
 fpp_sbus_json_header();
 fpp_sbus_log('sbus_status.php requested');
 
-$pluginDir = dirname(__DIR__);
+$pluginDir = __DIR__;
 $configFile = $pluginDir . '/sbus_config.json';
 
 $config = [];

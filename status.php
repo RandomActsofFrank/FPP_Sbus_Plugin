@@ -2,7 +2,7 @@
 /*
  * FrSky SBUS Plugin - Status Page (server-side only, no JavaScript)
  */
-$pluginDir = dirname(__DIR__);
+$pluginDir = __DIR__;
 $configFile = $pluginDir . '/sbus_config.json';
 $pidFile = $pluginDir . '/sbus_daemon.pid';
 $logFile = $pluginDir . '/sbus_daemon.log';
