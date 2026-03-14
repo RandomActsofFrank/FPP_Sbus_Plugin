@@ -163,6 +163,22 @@ var FPP_TYPE_MAP = { 'Start Playlist': 'playlists', 'Start Sequence': 'sequences
 var fppLists = { playlists: [], sequences: [], effects: [], media: [] };
 var fppListsBase = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=fpp_lists.php';
 
+/** Parse the last JSON object in response (plugin output is usually last when FPP wraps page in HTML). */
+function parseLastJson(text) {
+    var i = (typeof text === 'string' ? text : '').lastIndexOf('{');
+    if (i < 0) return {};
+    try { return JSON.parse(text.substring(i)); } catch (e) { return {}; }
+}
+/** Ensure items is an array of strings for dropdowns. */
+function normalizeListItems(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr.map(function(x) {
+        if (typeof x === 'string') return x;
+        if (x && typeof x === 'object' && (x.name || x.filename || x.path)) return String(x.name || x.filename || x.path);
+        return x != null ? String(x) : '';
+    }).filter(Boolean);
+}
+
 function parseCommand(cmd) {
     var c = (cmd || '').trim();
     if (!c) return { type: 'Start Playlist', item: '', isCustom: true };
@@ -245,15 +261,9 @@ function appendRuleRow(i) {
                 fetch(fppListsBase + '&type=' + encodeURIComponent(fppType))
                 .then(function(res) { return res.text(); })
                 .then(function(text) {
-                    var data = {};
-                    try {
-                        var m = text.match(/\{[\s\S]*\}/);
-                        if (m) data = JSON.parse(m[0]);
-                    } catch (e) {}
-                    if (data.items && Array.isArray(data.items)) {
-                        fppLists[fppType] = data.items;
-                        fillItemDropdown(itemSel, t, '');
-                    }
+                    var data = parseLastJson(text);
+                    fppLists[fppType] = normalizeListItems(data.items || []);
+                    fillItemDropdown(itemSel, t, '');
                 })
                 .catch(function() {});
             }
@@ -313,13 +323,9 @@ function loadFppLists(done) {
         fetch(fppListsBase + '&type=' + encodeURIComponent(t))
             .then(function(r) { return r.text(); })
             .then(function(text) {
-                var data = {};
-                try {
-                    var m = text.match(/\{[\s\S]*\}/);
-                    if (m) data = JSON.parse(m[0]);
-                } catch (e) {}
+                var data = parseLastJson(text);
                 if (data.error) errors.push(data.error);
-                if (data.items && Array.isArray(data.items)) fppLists[t] = data.items;
+                fppLists[t] = normalizeListItems(data.items || []);
                 check();
             })
             .catch(function() {

@@ -8,15 +8,25 @@
 
 if (!function_exists('fpp_sbus_log')) {
     /**
-     * Append a line to fpp_sbus.log for debugging.
+     * Append a line to fpp_sbus.log in the FPP log folder (or plugin dir if not writable).
      * @param string $message
      * @param array $context Optional key-value data (e.g. ['type' => 'playlists', 'host' => '127.0.0.1'])
      */
     function fpp_sbus_log($message, $context = []) {
         static $logFile = null;
         if ($logFile === null) {
-            $base = defined('FPP_SBUS_PLUGIN_ROOT') ? FPP_SBUS_PLUGIN_ROOT : __DIR__;
-            $logFile = $base . '/fpp_sbus.log';
+            $fppLogDirs = array('/home/fpp/logs', '/var/log/fpp', '/opt/fpp/logs');
+            $logFile = '';
+            foreach ($fppLogDirs as $dir) {
+                if (is_dir($dir) && is_writable($dir)) {
+                    $logFile = $dir . '/fpp_sbus.log';
+                    break;
+                }
+            }
+            if ($logFile === '') {
+                $base = defined('FPP_SBUS_PLUGIN_ROOT') ? FPP_SBUS_PLUGIN_ROOT : __DIR__;
+                $logFile = $base . '/fpp_sbus.log';
+            }
         }
         if ($logFile === '' || $logFile === false) return;
         $ts = date('Y-m-d H:i:s');

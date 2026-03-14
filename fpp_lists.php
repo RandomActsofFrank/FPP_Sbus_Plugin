@@ -33,20 +33,32 @@ $hostsToTry = array_unique(array_filter(array($configHost, $requestHost, '127.0.
 
 $items = array();
 
-function extractNames($data) {
+function extractNames($data, $type = '') {
     $out = array();
     if (!is_array($data)) return $out;
+    if (isset($data['items']) && is_array($data['items'])) {
+        foreach ($data['items'] as $f) {
+            if (is_string($f)) $out[] = $f;
+            elseif (is_array($f)) $out[] = isset($f['name']) ? $f['name'] : (isset($f['filename']) ? $f['filename'] : (isset($f['path']) ? basename($f['path'], '.' . pathinfo($f['path'], PATHINFO_EXTENSION)) : ''));
+        }
+        return array_values(array_filter($out));
+    }
     if (isset($data['files']) && is_array($data['files'])) {
         foreach ($data['files'] as $f) {
             if (is_string($f)) $out[] = $f;
-            elseif (is_array($f) && isset($f['name'])) $out[] = $f['name'];
+            elseif (is_array($f)) $out[] = isset($f['name']) ? $f['name'] : (isset($f['filename']) ? $f['filename'] : '');
         }
-        return $out;
+        return array_values(array_filter($out));
     }
-    if (isset($data['items']) && is_array($data['items'])) return $data['items'];
+    if ($type && isset($data[$type]) && is_array($data[$type])) {
+        foreach ($data[$type] as $f) {
+            $out[] = is_string($f) ? $f : (is_array($f) && isset($f['name']) ? $f['name'] : (is_array($f) && isset($f['filename']) ? $f['filename'] : ''));
+        }
+        return array_values(array_filter($out));
+    }
     if (array_keys($data) === array_keys(array_values($data))) {
         foreach ($data as $f) {
-            $out[] = is_string($f) ? $f : (isset($f['name']) ? $f['name'] : '');
+            $out[] = is_string($f) ? $f : (is_array($f) && (isset($f['name']) || isset($f['filename'])) ? ($f['name'] ?? $f['filename']) : '');
         }
         return array_values(array_filter($out));
     }
@@ -69,7 +81,7 @@ foreach ($hostsToTry as $host) {
         fpp_sbus_log('fpp_lists try url', ['url' => $url, 'ok' => ($raw !== false), 'len' => ($raw !== false ? strlen($raw) : 0)]);
         if ($raw !== false) {
             $data = json_decode($raw, true);
-            $items = extractNames($data);
+            $items = extractNames($data, $type);
             if (!empty($items)) {
                 $listSource = 'api:' . $url;
                 break 2;
@@ -110,5 +122,6 @@ if (empty($items)) {
     sort($items);
 }
 
+$items = array_values(array_map('strval', array_filter($items, function($v) { return $v !== ''; })));
 fpp_sbus_log('fpp_lists.php result', ['type' => $type, 'count' => count($items), 'source' => isset($listSource) ? $listSource : 'none']);
-echo json_encode(array('items' => array_values($items)));
+echo json_encode(array('items' => $items));
