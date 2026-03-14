@@ -68,6 +68,20 @@ $serialPorts = array('/dev/ttyAMA0', '/dev/ttyS0', '/dev/ttyUSB0', '/dev/ttyUSB1
 <p>Configure SBUS reception from your FrSky RC receiver and map servo channel values to FPP commands (effects, playlists, etc.).</p>
 <p><strong>Note:</strong> SBUS uses inverted serial logic. You need an <a href="https://electronicspost.com/explain-the-logic-not-gate-or-inverter-and-its-operation-with-truth-table/" target="_blank">inverter circuit</a> (e.g., transistor + resistors) between the receiver and Raspberry Pi unless your hardware inverts the signal.</p>
 
+<div class="panel panel-info" style="margin-bottom:16px;">
+<div class="panel-heading"><strong>How SBUS reading works (no SBUS code in PHP)</strong></div>
+<div class="panel-body small">
+<p>A <strong>Python daemon</strong> does all SBUS reading; this config page only displays the result.</p>
+<ol>
+<li><strong>Daemon:</strong> <code>scripts/sbus_fpp_daemon.py</code> runs in the background (started when FPP starts, if the plugin is enabled). It opens the serial port (e.g. /dev/ttyAMA0) at 100000 baud, 8E2.</li>
+<li><strong>Serial → SBUS:</strong> The daemon reads raw bytes, finds 25-byte SBUS packets (header 0x0F, footer 0x00), and decodes the 16 channels (11 bits each) plus ch17/ch18, failsafe, and frame_lost. The protocol is implemented in <code>parse_sbus_packet()</code> in that script.</li>
+<li><strong>Status file:</strong> After each valid packet, the daemon writes <code>sbus_status.json</code> in the plugin directory with last_packet time, channels[1–16], and flags.</li>
+<li><strong>This page:</strong> The "Receiver Status" section and channel table are filled by <code>sbus_status.php</code>, which reads <code>sbus_status.json</code> and returns it as JSON. No serial or SBUS parsing runs in PHP.</li>
+</ol>
+<p>So the only code that reads SBUS from the receiver is <strong>scripts/sbus_fpp_daemon.py</strong>. Rule triggering (FPP API calls) also runs in that daemon.</p>
+</div>
+</div>
+
 <h3>Receiver Status</h3>
 <div id="receiverStatus" class="panel panel-default">
     <div class="panel-body">
@@ -168,42 +182,56 @@ function renderRules() {
 
 function updateReceiverStatus() {
     var apiUrl = 'plugin.php?plugin=<?php echo htmlspecialchars($plugin); ?>&page=sbus_status.php';
-    fetch(apiUrl).then(function(r) { return r.json(); }).then(function(data) {
-        var statusEl = document.getElementById('receiverStatusText');
-        var tableEl = document.getElementById('channelTable');
-        var flagsEl = document.getElementById('receiverFlags');
-        if (data.receiver) {
-            var r = data.receiver;
-            if (r.connected) {
-                statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data updating.';
-                tableEl.style.display = 'table';
-                for (var i = 1; i <= 16; i++) {
-                    var el = document.getElementById('ch' + i);
-                    if (el) el.textContent = r.channels[i - 1] !== undefined ? r.channels[i - 1] : '-';
+    var statusEl = document.getElementById('receiverStatusText');
+    var tableEl = document.getElementById('channelTable');
+    var flagsEl = document.getElementById('receiverFlags');
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 5000);
+    fetch(apiUrl, { signal: controller.signal })
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+            clearTimeout(timeoutId);
+            var data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                var m = text.match(/\{[\s\S]*\}/);
+                data = m ? JSON.parse(m[0]) : {};
+            }
+            if (data.receiver) {
+                var r = data.receiver;
+                if (r.connected) {
+                    statusEl.innerHTML = '<span class="label label-success">Receiver connected</span> Channel data updating.';
+                    tableEl.style.display = 'table';
+                    for (var i = 1; i <= 16; i++) {
+                        var el = document.getElementById('ch' + i);
+                        if (el) el.textContent = r.channels[i - 1] !== undefined ? r.channels[i - 1] : '-';
+                    }
+                    var flags = [];
+                    if (r.failsafe) flags.push('Failsafe');
+                    if (r.frameLost) flags.push('Frame lost');
+                    if (r.ch17) flags.push('Ch17');
+                    if (r.ch18) flags.push('Ch18');
+                    flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
+                } else {
+                    statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets recently.';
+                    tableEl.style.display = 'none';
+                    flagsEl.textContent = '';
                 }
-                var flags = [];
-                if (r.failsafe) flags.push('Failsafe');
-                if (r.frameLost) flags.push('Frame lost');
-                if (r.ch17) flags.push('Ch17');
-                if (r.ch18) flags.push('Ch18');
-                flagsEl.textContent = flags.length ? 'Flags: ' + flags.join(', ') : '';
             } else {
-                statusEl.innerHTML = '<span class="label label-warning">No signal</span> No valid SBUS packets received recently. Check wiring, serial port, and that the transmitter is on.';
+                if (!data.running) {
+                    statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS and restart FPP.';
+                } else {
+                    statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon running. Connect receiver.';
+                }
                 tableEl.style.display = 'none';
                 flagsEl.textContent = '';
             }
-        } else {
-            if (!data.running) {
-                statusEl.innerHTML = '<span class="label label-default">Daemon not running</span> Enable SBUS and restart FPP, or ensure the daemon is running.';
-            } else {
-                statusEl.innerHTML = '<span class="label label-warning">Waiting for data</span> Daemon is running. Connect receiver and ensure SBUS output is wired correctly.';
-            }
-            tableEl.style.display = 'none';
-            flagsEl.textContent = '';
-        }
-    }).catch(function() {
-        document.getElementById('receiverStatusText').innerHTML = '<span class="label label-default">Could not fetch status</span>';
-    });
+        })
+        .catch(function() {
+            clearTimeout(timeoutId);
+            statusEl.innerHTML = '<span class="label label-default">Could not fetch status</span>';
+        });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -211,7 +239,8 @@ document.addEventListener('DOMContentLoaded', function() {
     else renderRules();
 
     updateReceiverStatus();
-    setInterval(updateReceiverStatus, 1500);
+    var statusInterval = 4000;
+    setInterval(updateReceiverStatus, statusInterval);
 
     function doDaemonAction(action, btnId) {
         var btn = document.getElementById(btnId);

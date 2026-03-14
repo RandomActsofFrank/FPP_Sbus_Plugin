@@ -9,6 +9,19 @@ Allows FPP (Falcon Player) to receive FrSky SBUS signals from RC transmitters an
 - Trigger commands when channel value falls within a configured min-max range
 - Works with FrSky receivers (X8R, X4R, etc.) via SBUS output
 
+## How SBUS reading works (where the code lives)
+
+**FPP and the config page do not read SBUS.** All serial and SBUS handling is in one place:
+
+| Component | Role |
+|-----------|------|
+| **`scripts/sbus_fpp_daemon.py`** | Runs in the background. Opens the serial port (e.g. `/dev/ttyAMA0`) at 100000 baud, 8E2. Reads bytes, finds 25-byte SBUS packets (header `0x0F`, footer `0x00`), decodes the 16 channels (11 bits each) and flags. Writes `sbus_status.json` after each packet. Applies your rules and calls the FPP API when channel values match. |
+| **`sbus_status.json`** | Written by the daemon: `last_packet` time, `channels[1–16]`, failsafe, frame_lost, ch17, ch18. |
+| **`sbus_status.php`** | Read-only: reads `sbus_status.json` and returns it as JSON for the config page. No serial, no SBUS parsing. |
+| **Config page (content.php)** | Displays receiver status and channel table by fetching the JSON from `sbus_status.php`. No SBUS code. |
+
+So the **only** code that reads SBUS from the receiver is **`scripts/sbus_fpp_daemon.py`** (see `parse_sbus_packet()` and the main loop). The daemon is started by FPP’s `scripts/postStart.sh` when FPP starts and the plugin is enabled.
+
 ## Requirements
 
 - **Raspberry Pi** with serial port (built-in ttyAMA0 or USB-serial adapter)
