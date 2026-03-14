@@ -24,19 +24,37 @@ if ($cmd === '') {
     exit;
 }
 
-$url = 'http://' . $host . '/api/command/' . rawurlencode($cmd);
+$url = null;
+$idx = strpos($cmd, '/');
+if ($idx !== false) {
+    $type = trim(substr($cmd, 0, $idx));
+    $name = trim(substr($cmd, $idx + 1));
+    $base = 'http://' . $host . '/api/';
+    if ($type === 'Start Playlist' && $name !== '') {
+        $url = $base . 'playlist/' . rawurlencode($name) . '/start';
+    } elseif ($type === 'Start Sequence' && $name !== '') {
+        $url = $base . 'sequence/' . rawurlencode($name) . '/start/0';
+    } elseif ($type === 'Start Effect' && $name !== '') {
+        $url = $base . 'effect/' . rawurlencode($name) . '/start';
+    } elseif ($type === 'Start Media' && $name !== '') {
+        $url = $base . 'media/' . rawurlencode($name) . '/start';
+    }
+}
+if ($url === null) {
+    $url = 'http://' . $host . '/api/command/' . rawurlencode($cmd);
+}
+
 fpp_sbus_log('test_command.php', ['command' => $cmd, 'url' => $url]);
 
 $ctx = stream_context_create(['http' => ['timeout' => 10]]);
 $raw = @file_get_contents($url, false, $ctx);
 
 if ($raw === false) {
-    $err = error_get_last();
     fpp_sbus_log('test_command.php failed', ['command' => $cmd]);
     echo json_encode(['ok' => false, 'message' => 'Could not reach FPP at ' . $host . '. Check FPP Host.']);
     exit;
 }
 
-$code = (isset($http_response_header) && preg_match('#HTTP/\d\.\d\s+(\d+)#', $http_response_header[0], $m)) ? (int)$m[1] : 0;
+$code = (isset($http_response_header) && is_array($http_response_header) && preg_match('#HTTP/\d\.\d\s+(\d+)#', $http_response_header[0], $m)) ? (int)$m[1] : 0;
 fpp_sbus_log('test_command.php result', ['command' => $cmd, 'http_code' => $code]);
 echo json_encode(['ok' => ($code >= 200 && $code < 300), 'message' => $code >= 200 && $code < 300 ? 'Command sent.' : 'FPP returned HTTP ' . $code]);

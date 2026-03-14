@@ -52,7 +52,7 @@ if (isset($_POST['save'])) {
     }
 
     file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT));
-    echo "<div class='alert alert-success' style='font-size:16px;padding:14px 20px;margin-bottom:20px;font-weight:500;'>Configuration saved. Restart the FPP daemon (fppd) or the SBUS daemon for changes to take effect. (This is not a system reboot—only the FPP service restarts.)</div>";
+    echo "<div class='panel panel-success' style='margin-bottom:20px;'><div class='panel-heading' style='font-size:18px;font-weight:bold;'><span class='glyphicon glyphicon-ok'></span> Configuration saved</div><div class='panel-body' style='font-size:16px;line-height:1.5;color:#333;'>Restart the FPP daemon (fppd) or the SBUS daemon for changes to take effect. <em>This is not a system reboot—only the FPP service restarts.</em></div></div>";
 }
 
 // Build rules JSON for editing

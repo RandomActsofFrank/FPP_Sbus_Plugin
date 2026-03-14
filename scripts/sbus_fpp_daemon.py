@@ -89,9 +89,34 @@ def write_status(status_file, parsed):
         print(f"Status write error: {e}", file=sys.stderr)
 
 
+def _fpp_start_url(host, command):
+    """Build FPP REST URL for Start Playlist/Sequence/Effect/Media; else None (use /api/command/)."""
+    command = urllib.parse.unquote(command)
+    if '/' not in command:
+        return None
+    parts = command.split('/', 1)
+    ctype = (parts[0] or '').strip()
+    name = (parts[1] or '').strip()
+    if not name:
+        return None
+    encoded = urllib.parse.quote(name, safe='')
+    base = f"http://{host}/api/"
+    if ctype == 'Start Playlist':
+        return f"{base}playlist/{encoded}/start"
+    if ctype == 'Start Sequence':
+        return f"{base}sequence/{encoded}/start/0"
+    if ctype == 'Start Effect':
+        return f"{base}effect/{encoded}/start"
+    if ctype == 'Start Media':
+        return f"{base}media/{encoded}/start"
+    return None
+
+
 def call_fpp_api(host, command):
-    """Send FPP API command via HTTP."""
-    url = f"http://{host}/api/command/{command}"
+    """Send FPP API command via HTTP. Uses REST endpoints for Start Playlist/Sequence/Effect/Media."""
+    url = _fpp_start_url(host, command)
+    if url is None:
+        url = f"http://{host}/api/command/{urllib.parse.quote(command, safe='/')}"
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -200,8 +225,7 @@ def main():
                                     key = ri
                                     if key not in last_triggered or (now - last_triggered[key]) >= trigger_cooldown:
                                         last_triggered[key] = now
-                                        cmd_encoded = urllib.parse.quote(cmd, safe='/')
-                                        call_fpp_api(fpp_host, cmd_encoded)
+                                        call_fpp_api(fpp_host, cmd)
             else:
                 time.sleep(0.001)
         except serial.SerialException as e:
